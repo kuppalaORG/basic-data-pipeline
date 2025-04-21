@@ -8,6 +8,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
+    hostname: kafka
     depends_on:
       - zookeeper
     ports:
@@ -15,8 +16,9 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   mysql:
@@ -45,3 +47,4 @@ services:
       STATUS_STORAGE_TOPIC: connect-status
       KEY_CONVERTER_SCHEMAS_ENABLE: false
       VALUE_CONVERTER_SCHEMAS_ENABLE: false
+      CONNECT_PLUGIN_PATH: /kafka/connect,/usr/share/java
