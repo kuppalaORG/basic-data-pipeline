@@ -12,25 +12,30 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - 9092:9092
+      - "9092:9092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   mysql:
     image: mysql:8
     restart: always
+    ports:
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_USER: debezium
       MYSQL_PASSWORD: dbz
       MYSQL_DATABASE: testdb
-    ports:
-      - "3306:3306"
+    command: [
+      "--server-id=223344",
+      "--log-bin=mysql-bin",
+      "--binlog-format=ROW",
+      "--binlog-row-image=FULL"
+    ]
 
   connect:
     image: debezium/connect:2.6
@@ -45,6 +50,4 @@ services:
       CONFIG_STORAGE_TOPIC: connect-configs
       OFFSET_STORAGE_TOPIC: connect-offsets
       STATUS_STORAGE_TOPIC: connect-status
-      KEY_CONVERTER_SCHEMAS_ENABLE: false
-      VALUE_CONVERTER_SCHEMAS_ENABLE: false
       CONNECT_PLUGIN_PATH: /kafka/connect,/usr/share/java
