@@ -38,7 +38,7 @@ services:
     ]
 
   connect:
-    image: debezium/connect:2.6
+    image: quay.io/debezium/connect:2.6
     ports:
       - "8083:8083"
     depends_on:
@@ -52,5 +52,7 @@ services:
       STATUS_STORAGE_TOPIC: connect-status
       KEY_CONVERTER_SCHEMAS_ENABLE: false
       VALUE_CONVERTER_SCHEMAS_ENABLE: false
-      CONNECT_PLUGIN_PATH: /kafka/connect,/usr/share/java
+      CONNECT_PLUGIN_PATH: /kafka/connect,/usr/share/java,/debezium-plugins
       SCHEMA_HISTORY_INTERNAL_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    volumes:
+      - ./plugins:/debezium-plugins
