@@ -71,6 +71,24 @@ services:
     networks:
       - kafka_net
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.3
+    container_name: clickhouse
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # Native client interface
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    networks:
+      - kafka_net
+
+volumes:
+  clickhouse_data:
+
 networks:
   kafka_net:
     driver: bridge
