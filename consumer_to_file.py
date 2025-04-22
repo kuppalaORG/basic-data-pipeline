@@ -1,34 +1,39 @@
 from kafka import KafkaConsumer
 import json
-import os
+import clickhouse_connect
 
-TOPIC_NAME = "dbserver1.testdb.employees"
-BOOTSTRAP_SERVERS = "localhost:9092"
-OUTPUT_FILE = "cdc_output.jsonl"
+# Connect to ClickHouse
+client = clickhouse_connect.get_client(host='localhost', port=9000)
 
-# Create output file if it doesn't exist
-if not os.path.exists(OUTPUT_FILE):
-    with open(OUTPUT_FILE, "w") as f:
-        pass
-
+# Kafka consumer
 consumer = KafkaConsumer(
-    TOPIC_NAME,
-    bootstrap_servers=BOOTSTRAP_SERVERS,
+    'dbserver1.testdb.employees',
+    bootstrap_servers='localhost:9092',
     auto_offset_reset='earliest',
-    enable_auto_commit=True,
-    group_id='cdc-to-s3-group',
+    group_id='clickhouse-consumer',
     value_deserializer=lambda m: json.loads(m.decode('utf-8'))
 )
 
-print(f"📥 Listening to topic: {TOPIC_NAME}... Writing to {OUTPUT_FILE}")
+for msg in consumer:
+    try:
+        value = msg.value
+        # Extract record from Debezium envelope
+        payload = value.get('payload', {})
+        after = payload.get('after', {})
+        if after:
+            id = int(after.get('id', 0))
+            name = after.get('name', '')
+            salary = float(after.get('salary', 0))
+            created_at = after.get('created_at', '2024-01-01 00:00:00')
 
-try:
-    for message in consumer:
-        with open(OUTPUT_FILE, "a") as f:
-            json.dump(message.value, f)
-            f.write("\n")
-        print("✔ Message written to file.")
-except KeyboardInterrupt:
-    print("\n🛑 Stopped by user.")
-finally:
-    consumer.close()
+            # Insert into ClickHouse
+            client.insert(
+                'testdb.employees',
+                [[id, name, salary, created_at]],
+                column_names=['id', 'name', 'salary', 'created_at']
+            )
+
+            print(f"Inserted record: {id}, {name}, {salary}, {created_at}")
+
+    except Exception as e:
+        print(f"Error processing message: {e}")
