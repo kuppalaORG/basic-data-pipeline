@@ -3,7 +3,7 @@ from kafka import KafkaConsumer
 # Create a basic consumer with no decoding
 consumer = KafkaConsumer(
     'dbserver1.testdb.employees',
-    bootstrap_servers='kafka:9092',
+    bootstrap_servers='172.31.14.166:9092',
     auto_offset_reset='earliest',
     group_id='debug-consumer'
 )
