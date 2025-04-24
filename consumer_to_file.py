@@ -16,6 +16,7 @@ consumer = KafkaConsumer(
 )
 
 for msg in consumer:
+    print("processing")
     try:
         payload = msg.value.get('payload', {})
         op = payload.get('op')
