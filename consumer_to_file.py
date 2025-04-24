@@ -3,7 +3,8 @@ import json
 import clickhouse_connect
 
 # client = clickhouse_connect.get_client(host='clickhouse', port=9000)
-client = clickhouse_connect.get_client(host='localhost', port=9000)
+client = clickhouse_connect.get_client(host='localhost', port=8123)
+
 
 
 consumer = KafkaConsumer(
