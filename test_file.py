@@ -7,7 +7,6 @@ consumer = KafkaConsumer(
     bootstrap_servers='localhost:9092',
     auto_offset_reset='latest',
     group_id='test-consumer',
-    value_deserializer=lambda m: json.loads(m.decode('utf-8'))
 )
 
 print("Waiting for messages...\n")
