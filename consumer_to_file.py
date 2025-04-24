@@ -2,7 +2,9 @@ from kafka import KafkaConsumer
 import json
 import clickhouse_connect
 
-client = clickhouse_connect.get_client(host='clickhouse', port=9000)
+# client = clickhouse_connect.get_client(host='clickhouse', port=9000)
+client = clickhouse_connect.get_client(host='localhost', port=9000)
+
 
 consumer = KafkaConsumer(
     'dbserver1.testdb.employees',
