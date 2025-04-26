@@ -8,11 +8,12 @@ client = clickhouse_connect.get_client(host='localhost', port=8123)
 # Kafka consumer
 consumer = KafkaConsumer(
     'dbserver1.testdb.employees',
-    bootstrap_servers='localhost:9092',
+    bootstrap_servers='kafka:9092',
     auto_offset_reset='earliest',
     group_id='clickhouse-consumer',
     value_deserializer=lambda m: json.loads(m.decode('utf-8'))
 )
+print("Connected topics:", consumer.topics())
 
 for msg in consumer:
     try:
