@@ -8,7 +8,7 @@ client = clickhouse_connect.get_client(host='localhost', port=8123)
 # Kafka consumer
 consumer = KafkaConsumer(
     'dbserver1.testdb.employees',
-    bootstrap_servers='kafka:9092',
+    bootstrap_servers='172.31.14.166:9092',
     auto_offset_reset='earliest',
     group_id='clickhouse-consumer',
     value_deserializer=lambda m: json.loads(m.decode('utf-8'))
