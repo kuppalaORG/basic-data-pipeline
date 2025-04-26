@@ -14,6 +14,16 @@ conn = mysql.connector.connect(
 )
 
 cursor = conn.cursor()
+# ✅ Ensure employees table exists
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS employees (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255),
+    position VARCHAR(255),
+    salary FLOAT
+)
+""")
+conn.commit()
 
 names = ['Alice', 'Bob', 'Charlie', 'David', 'Eve', 'Frank', 'Grace', 'Heidi']
 positions = ['Data Engineer', 'DevOps Engineer', 'Analyst', 'Manager', 'Tester']
