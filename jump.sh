@@ -5,6 +5,7 @@
 #        ./jump.sh connect
 #        ./jump.sh zookeeper
 #        ./jump.sh clickhouse
+#chmod +x jump.sh
 
 case $1 in
   kafka)
