@@ -49,6 +49,16 @@ docker run -d --name docker-mysql-1 \
 sleep 15
 echo "🟢 MySQL started."
 
+echo "🔵 Waiting for MySQL to be ready..."
+
+# Retry until MySQL is ready
+until docker exec docker-mysql-1 mysqladmin ping -uroot -pdebezium --silent &>/dev/null; do
+  printf "."
+  sleep 2
+done
+
+echo "🟢 MySQL is ready."
+
 echo "⚙️ Setting up MySQL permissions..."
 docker exec -i docker-mysql-1 mysql -uroot -pdebezium <<EOF
 ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'debezium';
@@ -60,6 +70,7 @@ FLUSH PRIVILEGES;
 EOF
 
 echo "✅ MySQL permissions set."
+
 
 
 echo "🔵 Starting ClickHouse..."
