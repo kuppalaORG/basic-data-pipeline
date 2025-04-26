@@ -1,13 +1,15 @@
 #!/bin/bash
 
+set -e
+
 echo "🚀 Cleaning up old containers..."
 
-docker rm -f docker-zookeeper-1 docker-kafka-1 docker-connect-1 docker-mysql-1 clickhouse tabix-ui 2>/dev/null
+docker rm -f docker-zookeeper-1 docker-kafka-1 docker-connect-1 docker-mysql-1 clickhouse tabix-ui 2>/dev/null || true
 
 sleep 3
+
 echo "✅ Old containers removed."
 
-# --- Start Zookeeper ---
 echo "🔵 Starting Zookeeper..."
 docker run -d --name docker-zookeeper-1 \
   --network basic-data-pipeline_kafka_net \
@@ -15,9 +17,9 @@ docker run -d --name docker-zookeeper-1 \
   confluentinc/cp-zookeeper:7.5.0
 
 sleep 10
+
 echo "🟢 Zookeeper started."
 
-# --- Start Kafka ---
 echo "🔵 Starting Kafka..."
 docker run -d --name docker-kafka-1 \
   --network basic-data-pipeline_kafka_net \
@@ -31,9 +33,9 @@ docker run -d --name docker-kafka-1 \
   confluentinc/cp-kafka:7.5.0
 
 sleep 15
+
 echo "🟢 Kafka started."
 
-# --- Start MySQL ---
 echo "🔵 Starting MySQL..."
 docker run -d --name docker-mysql-1 \
   --network basic-data-pipeline_kafka_net \
@@ -45,9 +47,9 @@ docker run -d --name docker-mysql-1 \
   mysql:8.0.36
 
 sleep 15
+
 echo "🟢 MySQL started."
 
-# --- Start ClickHouse ---
 echo "🔵 Starting ClickHouse..."
 docker run -d --name clickhouse \
   --network basic-data-pipeline_kafka_net \
@@ -55,9 +57,9 @@ docker run -d --name clickhouse \
   clickhouse/clickhouse-server:23.3
 
 sleep 10
+
 echo "🟢 ClickHouse started."
 
-# --- Start Debezium Connect ---
 echo "🔵 Starting Debezium Connect..."
 docker run -d --name docker-connect-1 \
   --network basic-data-pipeline_kafka_net \
@@ -74,16 +76,16 @@ docker run -d --name docker-connect-1 \
   -e CONNECT_REST_ADVERTISED_HOST_NAME=connect \
   quay.io/debezium/connect:2.6
 
-sleep 15
-echo "🟢 Debezium Connect started."
+sleep 20
 
-# --- Fix MySQL Passwords (optional) ---
-echo "🔵 Fixing MySQL root password for Debezium..."
-docker exec -i docker-mysql-1 mysql -u root -proot -e "
-    ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'debezium';
-    ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'debezium';
+echo "🔄 Changing MySQL root password for compatibility..."
+docker exec -i docker-mysql-1 mysql -uroot -proot -e "
+    ALTER USER 'root'@'%' IDENTIFIED BY 'debezium';
+    ALTER USER 'root'@'localhost' IDENTIFIED BY 'debezium';
     FLUSH PRIVILEGES;
 "
+
+echo "🟢 Debezium Connect started."
 
 echo "✅ All containers started successfully!"
 docker ps
