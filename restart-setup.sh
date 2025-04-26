@@ -39,7 +39,7 @@ echo "🟢 Kafka started."
 echo "🔵 Starting MySQL..."
 docker run -d --name docker-mysql-1 \
   --network basic-data-pipeline_kafka_net \
-  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_ROOT_PASSWORD=debezium \
   -e MYSQL_DATABASE=testdb \
   -e MYSQL_USER=debezium \
   -e MYSQL_PASSWORD=dbz \
@@ -47,8 +47,20 @@ docker run -d --name docker-mysql-1 \
   mysql:8.0.36
 
 sleep 15
-
 echo "🟢 MySQL started."
+
+echo "⚙️ Setting up MySQL permissions..."
+docker exec -i docker-mysql-1 mysql -uroot -pdebezium <<EOF
+ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'debezium';
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'debezium';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost';
+GRANT ALL PRIVILEGES ON *.* TO 'debezium'@'%';
+FLUSH PRIVILEGES;
+EOF
+
+echo "✅ MySQL permissions set."
+
 
 echo "🔵 Starting ClickHouse..."
 docker run -d --name clickhouse \
