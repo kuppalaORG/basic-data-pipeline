@@ -38,10 +38,10 @@ for msg in consumer:
                 client.command(f"ALTER TABLE testdb.employees DELETE WHERE id = {id}")
                 client.insert(
                     'testdb.employees',
-                    [[id, name, salary, created_at]],
-                    column_names=['id', 'name', 'salary', 'created_at']
+                    [[id, name, salary]],
+                    column_names=['id', 'name', 'salary']
                 )
-                print(f"✅ Upserted record: {id}, {name}, {salary}, {created_at}")
+                print(f"✅ Upserted record: {id}, {name}, {salary}")
 
         elif op == 'd':
             before = payload.get('before', {})
