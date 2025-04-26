@@ -11,11 +11,16 @@ consumer = KafkaConsumer(
     bootstrap_servers='172.31.14.166:9092',
     auto_offset_reset='earliest',
     group_id='clickhouse-consumer',
-    value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+    value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None
 )
+
 print("Connected topics:", consumer.topics())
 
 for msg in consumer:
+    if msg.value is None:
+        print("⚠️  Skipped null message.")
+        continue
+
     try:
         value = msg.value
         payload = value.get('payload', {})
@@ -36,14 +41,14 @@ for msg in consumer:
                     [[id, name, salary, created_at]],
                     column_names=['id', 'name', 'salary', 'created_at']
                 )
-                print(f"Upserted record: {id}, {name}, {salary}, {created_at}")
+                print(f"✅ Upserted record: {id}, {name}, {salary}, {created_at}")
 
         elif op == 'd':
             before = payload.get('before', {})
             if before:
                 id = int(before.get('id'))
                 client.command(f"ALTER TABLE testdb.employees DELETE WHERE id = {id}")
-                print(f"Deleted record: {id}")
+                print(f"🗑️ Deleted record: {id}")
 
     except Exception as e:
-        print(f"Error processing message: {e}")
+        print(f"❌ Error processing message: {e}")
