@@ -76,7 +76,11 @@ docker run -d --name docker-connect-1 \
   quay.io/debezium/connect:2.6
 
 sleep 10
-
+docker exec -i docker-mysql-1 mysql -u root -e "
+    ALTER USER 'root'@'%' IDENTIFIED BY 'debezium';
+    ALTER USER 'root'@'localhost' IDENTIFIED BY 'debezium';
+    FLUSH PRIVILEGES;
+"
 echo "🟢 Debezium Connect started."
 
 echo "✅ All containers started successfully!"
