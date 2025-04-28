@@ -110,5 +110,20 @@ docker exec -i docker-mysql-1 mysql -uroot -proot -e "
 
 echo "🟢 Debezium Connect started."
 
+echo "🟢 Creation of db in Clickhouse."
+
+
+docker exec -it clickhouse clickhouse-client --query "
+CREATE DATABASE IF NOT EXISTS testdb;
+CREATE TABLE IF NOT EXISTS testdb.employees (
+    id Int32,
+    name String,
+    position String,
+    salary Float64,
+    created_at DateTime DEFAULT now()
+) ENGINE = MergeTree() ORDER BY id;
+"
+
+echo  "Created Db in Clickhouse"
 echo "✅ All containers started successfully!"
 docker ps
