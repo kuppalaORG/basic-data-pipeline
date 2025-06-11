@@ -75,8 +75,8 @@ services:
       CONFIG_STORAGE_TOPIC: connect-configs
       OFFSET_STORAGE_TOPIC: connect-offsets
       STATUS_STORAGE_TOPIC: connect-status
-      KEY_CONVERTER_SCHEMAS_ENABLE: false
-      VALUE_CONVERTER_SCHEMAS_ENABLE: false
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
       CONNECT_PLUGIN_PATH: /kafka/connect,/usr/share/java,/debezium-plugins
       SCHEMA_HISTORY_INTERNAL_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     volumes:
