@@ -81,6 +81,8 @@ services:
       PMA_PORT: 3306
     depends_on:
       - mysql
+    networks:
+      - kafka_net
       
   clickhouse:
     image: clickhouse/clickhouse-server:23.3
