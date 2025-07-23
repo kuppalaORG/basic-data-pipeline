@@ -1,18 +1,16 @@
 version: '3.8'
 
 services:
-
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
-    container_name: docker-zookeeper-1
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
     networks:
       - kafka_net
 
+
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: docker-kafka-1
     hostname: kafka
     depends_on:
       - zookeeper
@@ -27,9 +25,10 @@ services:
     networks:
       - kafka_net
 
+
+
   mysql:
     image: mysql:8.0.36
-    container_name: docker-mysql-1
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_USER: debezium
@@ -43,21 +42,18 @@ services:
       --gtid-mode=ON
       --enforce-gtid-consistency=ON
       --default-authentication-plugin=mysql_native_password
-    ports:
-      - "3306:3306"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - kafka_net
 
   connect:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: docker-connect-1
+    image: quay.io/debezium/connect:2.6
+    ports:
+      - "8083:8083"
     depends_on:
       - kafka
       - mysql
-    ports:
-      - "8083:8083"
     environment:
       BOOTSTRAP_SERVERS: kafka:9092
       GROUP_ID: 1
@@ -72,33 +68,36 @@ services:
       - ./plugins:/debezium-plugins
     networks:
       - kafka_net
-  
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    restart: always
-    ports:
-      - "8080:80"
-    environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
-    depends_on:
-      - mysql
-    networks:
-      - kafka_net
-      
+
+
   clickhouse:
     image: clickhouse/clickhouse-server:23.3
     container_name: clickhouse
     ports:
-      - "8123:8123"   # HTTP interface
-      - "9000:9000"   # Native client interface
+      - "8123:8123"
+      - "9000:9000"
     ulimits:
       nofile:
         soft: 262144
         hard: 262144
     volumes:
       - clickhouse_data:/var/lib/clickhouse
-      - ./clickhouse-init.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    networks:
+      - kafka_net
+
+
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    container_name: kafka-ui
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      - kafka
     networks:
       - kafka_net
 
@@ -106,23 +105,9 @@ services:
     image: spoonest/clickhouse-tabix-web-client
     container_name: clickhouse-ui
     ports:
-      - "8124:80"
+      - "8888:80"
     depends_on:
       - clickhouse
-    environment:
-      CLICKHOUSE_HOST: clickhouse
-    networks:
-      - kafka_net
-
-  kafka-ui:
-    image: quay.io/cloudhut/kowl:master
-    container_name: kafka-ui
-    ports:
-      - "8085:8080"
-    environment:
-      KAFKA_BROKERS: kafka:9092
-    depends_on:
-      - kafka
     networks:
       - kafka_net
 
@@ -131,4 +116,3 @@ volumes:
 
 networks:
   kafka_net:
-    driver: bridge

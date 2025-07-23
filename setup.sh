@@ -8,7 +8,6 @@ set -e
 #   - Run: chmod +x setup.sh
 #   - Execute: ./setup.sh
 ################################################################################
-
 echo "🔧 Installing Docker..."
 sudo yum update -y
 sudo yum install -y docker
@@ -22,121 +21,11 @@ sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPO
   -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 
-echo "📁 Setting up CDC pipeline directory..."
+echo "📁 Navigating to CDC directory..."
 mkdir -p ~/basic-data-pipeline
 cd ~/basic-data-pipeline
 
-echo "📦 Writing docker-compose.yml..."
-cat > docker-compose.yml <<'EOF'
-version: '3.8'
-
-services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    hostname: kafka
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
-  mysql:
-    image: mysql:8.0.36
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_USER: debezium
-      MYSQL_PASSWORD: dbz
-      MYSQL_DATABASE: testdb
-    command:
-      --server-id=223344
-      --log-bin=mysql-bin
-      --binlog-format=ROW
-      --binlog-row-image=FULL
-      --gtid-mode=ON
-      --enforce-gtid-consistency=ON
-      --default-authentication-plugin=mysql_native_password
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-
-  connect:
-    image: quay.io/debezium/connect:2.6
-    ports:
-      - "8083:8083"
-    depends_on:
-      - kafka
-      - mysql
-    environment:
-      BOOTSTRAP_SERVERS: kafka:9092
-      GROUP_ID: 1
-      CONFIG_STORAGE_TOPIC: connect-configs
-      OFFSET_STORAGE_TOPIC: connect-offsets
-      STATUS_STORAGE_TOPIC: connect-statuses
-      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
-      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
-      CONNECT_PLUGIN_PATH: /kafka/connect,/usr/share/java,/debezium-plugins
-      SCHEMA_HISTORY_INTERNAL_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    volumes:
-      - ./plugins:/debezium-plugins
-
-  clickhouse:
-    image: clickhouse/clickhouse-server:23.3
-    container_name: clickhouse
-    ports:
-      - "8123:8123"
-      - "9000:9000"
-    ulimits:
-      nofile:
-        soft: 262144
-        hard: 262144
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
-      - ./init.sh:/docker-entrypoint-initdb.d/init.sh:ro
-
-
-  kafka-ui:
-    image: provectuslabs/kafka-ui
-    container_name: kafka-ui
-    ports:
-      - "8081:8080"
-    environment:
-          KAFKA_CLUSTERS_0_NAME: local
-          KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-          KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: local-connect
-          KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://connect:8083
-        depends_on:
-          - kafka
-          - connect
-        networks:
-          - kafka_net
-
-  clickhouse-ui:
-    image: spoonest/clickhouse-tabix-web-client
-    container_name: clickhouse-ui
-    ports:
-      - "8888:80"
-    depends_on:
-      - clickhouse
-    networks:
-      - kafka_net
-
-
-volumes:
-  clickhouse_data:
-networks:
-  kafka_net:
-EOF
-
-echo "📄 Writing init.sql..."
+echo "📄 Creating init.sql..."
 cat > init.sql <<'EOF'
 CREATE DATABASE IF NOT EXISTS testdb;
 
@@ -155,11 +44,18 @@ GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, LOC
 FLUSH PRIVILEGES;
 EOF
 
-echo "🚀 Bringing up Docker containers..."
+echo "🧪 Creating init.sh for ClickHouse..."
+cat > init.sh <<'EOF'
+#!/bin/bash
+clickhouse-client --query="CREATE DATABASE IF NOT EXISTS raw;"
+EOF
+chmod +x init.sh
+
+echo "🚀 Starting Docker Compose services..."
 docker-compose up -d
 
 echo "⏳ Waiting for Kafka Connect to be ready..."
-sleep 30
+sleep 20
 
 echo "🔌 Creating connector registration script..."
 cat > register-connector.sh <<'EOF'
@@ -201,10 +97,6 @@ rm -f status.txt response.json
 EOF
 
 chmod +x register-connector.sh
-chmod +x init.sh
 ./register-connector.sh
 
-echo "✅ Creating raw database in ClickHouse..."
-docker exec clickhouse clickhouse-client --query="CREATE DATABASE IF NOT EXISTS raw;"
-
-echo "🎉 ✅ Debezium CDC pipeline fully deployed and connector registered!"
+echo "✅ Done. All services are up!"
