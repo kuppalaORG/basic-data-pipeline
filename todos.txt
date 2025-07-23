@@ -1,0 +1,34 @@
+✅ Make sure EC2 security group allows inbound traffic on:
+
+8080 → PHPMyAdmin
+
+8085 → Kafka UI
+
+8124 → ClickHouse UI
+
+✅ Access from browser:
+
+PHPMyAdmin: http://<EC2-PUBLIC-IP>:8080
+
+Kafka UI: http://<EC2-PUBLIC-IP>:8085
+
+ClickHouse UI (Tabix): http://<EC2-PUBLIC-IP>:8124
+
+
+PHPMyAdmin
+
+Host: mysql
+
+Username: root or debezium
+
+Password: root or dbz
+
+ClickHouse Tabix
+use Direct CH
+
+| Field                                     | Value                      |
+| ----------------------------------------- | -------------------------- |
+| **Name**                                  | any name like `ClickHouse` |
+| **[http://host\:port](http://host:port)** | `http://clickhouse:8123`   |
+| **Login**                                 | `default`                  |
+| **Password**                              | leave it blank             |
