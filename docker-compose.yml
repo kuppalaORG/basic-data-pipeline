@@ -79,6 +79,8 @@ services:
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
+    depends_on:
+      - mysql
       
   clickhouse:
     image: clickhouse/clickhouse-server:23.3
