@@ -17,7 +17,8 @@ STATUS_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST http://localhos
       "database.include.list": "testdb",
       "table.include.list": "testdb.*",
       "database.history.store.only.captured.tables.ddl": "false",
-      "snapshot.mode": "schema_only_recovery",
+      "snapshot.mode": "initial",
+      "auto.create.topics.enable":"true"
       "table.ignore.builtin": "true",
       "include.schema.changes": "true",
       "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
