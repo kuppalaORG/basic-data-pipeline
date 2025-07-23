@@ -62,10 +62,22 @@ echo "🚀 Starting Docker Compose services..."
 docker-compose up -d
 
 echo "⏳ Waiting for Kafka Connect to be ready..."
-until curl -s http://localhost:8083/ | grep -q "Kafka Connect"; do
+
+while true; do
+  STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083)
+  echo "🔍 HTTP Status: $STATUS_CODE"
+
+  if [ "$STATUS_CODE" -eq 200 ]; then
+    echo "✅ Kafka Connect is ready!"
+    break
+  fi
+
   echo "⌛ Kafka Connect not ready yet. Retrying in 5 seconds..."
-  sleep 15
+  sleep 5
 done
+
+
+
 echo "✅ Kafka Connect is ready!"
 
 echo "🔌 Creating connector registration script..."
