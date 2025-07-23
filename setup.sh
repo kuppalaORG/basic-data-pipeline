@@ -64,7 +64,7 @@ docker-compose up -d
 echo "⏳ Waiting for Kafka Connect to be ready..."
 until curl -s http://localhost:8083/ | grep -q "Kafka Connect"; do
   echo "⌛ Kafka Connect not ready yet. Retrying in 5 seconds..."
-  sleep 5
+  sleep 15
 done
 echo "✅ Kafka Connect is ready!"
 
@@ -86,8 +86,10 @@ curl -s -o response.json -w "%{http_code}" -X POST http://localhost:8083/connect
       "database.password": "dbz",
       "database.server.id": "184054",
       "topic.prefix": "dbserver1",
-      "database.include.list": "testdb",
-      "include.schema.changes": "false",
+      "table.include.list": "testdb.*",
+      "database.history.store.only.captured.tables.ddl": "false",
+      "snapshot.mode": "schema_only_recovery",
+      "table.ignore.builtin": "true",
       "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
       "schema.history.internal.kafka.topic": "schema-changes.testdb"
     }
