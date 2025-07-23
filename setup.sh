@@ -77,15 +77,12 @@ while true; do
 done
 
 
-echo "✅ Kafka Connect is ready!"
-
 echo "🔌 Creating connector registration script..."
 cat > register-connector.sh <<'EOF'
 #!/bin/bash
-
 echo "🔌 Registering Debezium MySQL Connector..."
 
-curl -s -o response.json -w "%{http_code}" -X POST http://localhost:8083/connectors \
+STATUS_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST http://localhost:8083/connectors \
   -H "Content-Type: application/json" \
   -d '{
     "name": "mysql-connector",
@@ -97,27 +94,26 @@ curl -s -o response.json -w "%{http_code}" -X POST http://localhost:8083/connect
       "database.password": "dbz",
       "database.server.id": "184054",
       "topic.prefix": "dbserver1",
+      "database.include.list": "testdb",
       "table.include.list": "testdb.*",
       "database.history.store.only.captured.tables.ddl": "false",
       "snapshot.mode": "schema_only_recovery",
       "table.ignore.builtin": "true",
+      "include.schema.changes": "true",
       "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
       "schema.history.internal.kafka.topic": "schema-changes.testdb"
     }
-  }' > status.txt
+  }')
 
-STATUS=$(cat status.txt)
+echo "🌐 HTTP Status: $STATUS_CODE"
+cat response.json
 
-if [[ "$STATUS" == "201" ]]; then
-  echo "✅ Connector created successfully!"
-elif [[ "$STATUS" == "409" ]]; then
-  echo "⚠️ Connector already exists!"
+if [[ "$STATUS_CODE" == "201" || "$STATUS_CODE" == "409" ]]; then
+  echo "✅ Connector registered or already exists!"
 else
-  echo "❌ Connector creation failed. Status Code: $STATUS"
-  cat response.json
+  echo "❌ Connector registration failed!"
 fi
 
-rm -f status.txt response.json
 EOF
 
 chmod +x register-connector.sh
