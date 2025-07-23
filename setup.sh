@@ -82,3 +82,7 @@ echo "🔌 Creating connector registration script..."
 chmod +x register-connector.sh
 ./register-connector.sh
 echo "✅ Done. All services are up!"
+
+# Start Kafka-to-ClickHouse consumer in background
+nohup python3 consumer_to_clickhouse.py > consumer.log 2>&1 &
+echo "🚀 Kafka-to-ClickHouse consumer started in background."
