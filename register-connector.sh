@@ -15,11 +15,10 @@ curl -X POST http://localhost:8083/connectors \
       "database.server.id": "184054",
       "topic.prefix": "dbserver1",
       "database.include.list": "testdb",
-      "table.include.list": "testdb.employees",
       "include.schema.changes": "false",
       "schema.history.internal.kafka.bootstrap.servers": "docker-kafka-1:9092",
       "schema.history.internal.kafka.topic": "schema-changes.testdb"
     }
   }'
 
-echo "✅ Connector registered (or already exists)!"
+echo "✅ Connector registered (watching all tables in testdb)!"

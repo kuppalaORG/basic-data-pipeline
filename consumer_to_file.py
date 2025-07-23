@@ -1,54 +1,58 @@
-from kafka import KafkaConsumer
+from kafka import KafkaConsumer, TopicPartition
 import json
 import clickhouse_connect
+import time
 
-# Connect to ClickHouse (HTTP port 8123)
 client = clickhouse_connect.get_client(host='localhost', port=8123)
-
-# Kafka consumer
 consumer = KafkaConsumer(
-    'dbserver1.testdb.employees',
     bootstrap_servers='172.31.14.166:9092',
     auto_offset_reset='earliest',
     group_id='clickhouse-consumer',
     value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None
 )
 
-print("Connected topics:", consumer.topics())
+def ensure_table(table_name, sample_record):
+    cols = []
+    for k, v in sample_record.items():
+        if k == 'id':
+            col_type = 'Int64'
+        elif isinstance(v, float):
+            col_type = 'Float64'
+        elif isinstance(v, int):
+            col_type = 'Int64'
+        else:
+            col_type = 'String'
+        cols.append(f"{k} {col_type}")
 
-for msg in consumer:
-    if msg.value is None:
-        print("⚠️  Skipped null message.")
-        continue
+    ddl = f"CREATE TABLE IF NOT EXISTS raw.{table_name} ({', '.join(cols)}) ENGINE = MergeTree() ORDER BY id"
+    client.command(ddl)
 
-    try:
-        value = msg.value
-        payload = value.get('payload', {})
-        op = payload.get('op')  # c (create), u (update), d (delete)
+while True:
+    topics = consumer.topics()
+    for topic in topics:
+        if topic.startswith("dbserver1.testdb."):
+            consumer.subscribe([topic])
+            print(f"🟢 Subscribed to topic: {topic}")
 
-        if op in ['c', 'u']:
-            after = payload.get('after', {})
-            if after:
-                id = int(after.get('id'))
-                name = after.get('name', '')
-                salary = float(after.get('salary', 0))
-                created_at = after.get('created_at', '2024-01-01 00:00:00')
+            for msg in consumer:
+                payload = msg.value.get('payload')
+                table = topic.split('.')[-1]
 
-                # Upsert = delete old + insert new
-                client.command(f"ALTER TABLE testdb.employees DELETE WHERE id = {id}")
-                client.insert(
-                    'testdb.employees',
-                    [[id, name, salary]],
-                    column_names=['id', 'name', 'salary']
-                )
-                print(f"✅ Upserted record: {id}, {name}, {salary}")
+                if payload is None:
+                    continue
 
-        elif op == 'd':
-            before = payload.get('before', {})
-            if before:
-                id = int(before.get('id'))
-                client.command(f"ALTER TABLE testdb.employees DELETE WHERE id = {id}")
-                print(f"🗑️ Deleted record: {id}")
-
-    except Exception as e:
-        print(f"❌ Error processing message: {e}")
+                op = payload.get('op')
+                if op in ['c', 'u']:
+                    after = payload.get('after', {})
+                    if after:
+                        ensure_table(table, after)
+                        values = [[after[k] for k in after]]
+                        client.insert(f'raw.{table}', values, column_names=list(after.keys()))
+                        print(f"✅ Inserted into raw.{table}: {after}")
+                elif op == 'd':
+                    before = payload.get('before', {})
+                    if before:
+                        id = int(before.get('id'))
+                        client.command(f"ALTER TABLE raw.{table} DELETE WHERE id = {id}")
+                        print(f"🗑️ Deleted from raw.{table}: {id}")
+    time.sleep(10)

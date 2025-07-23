@@ -7,7 +7,6 @@ set -e
 # 🛠️ Prerequisites: 
 #   - Run: chmod +x setup.sh
 #   - Execute: ./setup.sh
-# 📌 Note: Tested on EC2 instance with AMI Linux 2 (Amazon Linux 2 AMI 2.0)
 ################################################################################
 
 echo "🔧 Installing Docker..."
@@ -29,9 +28,9 @@ cd ~/basic-data-pipeline
 
 echo "📦 Writing docker-compose.yml..."
 cat > docker-compose.yml <<'EOF'
-version: '3'
-services:
+version: '3.8'
 
+services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     environment:
@@ -81,13 +80,54 @@ services:
       GROUP_ID: 1
       CONFIG_STORAGE_TOPIC: connect-configs
       OFFSET_STORAGE_TOPIC: connect-offsets
-      STATUS_STORAGE_TOPIC: connect-status
+      STATUS_STORAGE_TOPIC: connect-statuses
       KEY_CONVERTER_SCHEMAS_ENABLE: "false"
       VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
       CONNECT_PLUGIN_PATH: /kafka/connect,/usr/share/java,/debezium-plugins
       SCHEMA_HISTORY_INTERNAL_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     volumes:
       - ./plugins:/debezium-plugins
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.3
+    container_name: clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse-init.sh:/docker-entrypoint-initdb.d/init.sh
+
+    kafka-ui:
+      image: provectuslabs/kafka-ui
+      container_name: kafka-ui
+      ports:
+        - "8081:8080"
+      environment:
+        KAFKA_CLUSTERS_0_NAME: local
+        KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      depends_on:
+        - kafka
+      networks:
+        - kafka_net
+
+    clickhouse-ui:
+      image: spoonest/clickhouse-tabix-web-client
+      container_name: clickhouse-ui
+      ports:
+        - "8888:80"
+      depends_on:
+        - clickhouse
+      networks:
+        - kafka_net
+
+
+volumes:
+  clickhouse_data:
 EOF
 
 echo "📄 Writing init.sql..."
@@ -134,7 +174,6 @@ curl -s -o response.json -w "%{http_code}" -X POST http://localhost:8083/connect
       "database.server.id": "184054",
       "topic.prefix": "dbserver1",
       "database.include.list": "testdb",
-      "table.include.list": "testdb.employees",
       "include.schema.changes": "false",
       "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
       "schema.history.internal.kafka.topic": "schema-changes.testdb"
@@ -156,6 +195,10 @@ rm -f status.txt response.json
 EOF
 
 chmod +x register-connector.sh
+chmod +x init.sh
 ./register-connector.sh
+
+echo "✅ Creating raw database in ClickHouse..."
+docker exec clickhouse clickhouse-client --query="CREATE DATABASE IF NOT EXISTS raw;"
 
 echo "🎉 ✅ Debezium CDC pipeline fully deployed and connector registered!"

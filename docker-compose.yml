@@ -49,7 +49,9 @@ services:
       - kafka_net
 
   connect:
-    image: quay.io/debezium/connect:2.6
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: docker-connect-1
     depends_on:
       - kafka
@@ -96,6 +98,31 @@ services:
         hard: 262144
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse-init.sh:/docker-entrypoint-initdb.d/init.sh
+    networks:
+      - kafka_net
+
+  clickhouse-ui:
+    image: spoonest/clickhouse-tabix-web-client
+    container_name: clickhouse-ui
+    ports:
+      - "8124:80"
+    depends_on:
+      - clickhouse
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+    networks:
+      - kafka_net
+
+  kafka-ui:
+    image: quay.io/cloudhut/kowl:master
+    container_name: kafka-ui
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      - kafka
     networks:
       - kafka_net
 
