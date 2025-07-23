@@ -47,3 +47,26 @@ execute and delete connector
 
 curl -X DELETE http://localhost:8083/connectors/mysql-connector
 ./register-connector.sh  # Run your script again
+
+docker ps
+CONTAINER ID   IMAGE                        NAMES
+8bcceb69d413   mysql:8.0.36                basic-data-pipeline_mysql_1
+7db228172f7b   quay.io/debezium/connect    basic-data-pipeline_connect_1
+...
+
+docker exec -it <container_name> bash
+ex- docker exec -it basic-data-pipeline_mysql_1 bash
+     docker exec -it <container_name> sh
+RUn a command direclty
+docker exec -i basic-data-pipeline_mysql_1 mysql -u root -p testdb < /file.sql
+
+
+to move file to ec2
+
+scp -i /path/to/your-key.pem /path/to/file.sql ec2-user@<EC2-PUBLIC-IP>:/home/ec2-user/
+
+then to copy
+docker cp /home/ec2-user/file.sql basic-data-pipeline_mysql_1:/file.sql
+ or from EC2 directly (without bash):
+     docker exec -i basic-data-pipeline_mysql_1 mysql -u root -p testdb < /home/ec2-user/file
+
