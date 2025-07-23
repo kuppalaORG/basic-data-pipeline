@@ -70,7 +70,16 @@ services:
       - ./plugins:/debezium-plugins
     networks:
       - kafka_net
-
+  
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      
   clickhouse:
     image: clickhouse/clickhouse-server:23.3
     container_name: clickhouse
