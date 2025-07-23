@@ -129,6 +129,8 @@ services:
 
 volumes:
   clickhouse_data:
+networks:
+  kafka_net:
 EOF
 
 echo "📄 Writing init.sql..."
