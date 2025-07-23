@@ -38,3 +38,7 @@ use Direct CH
 | Kafka Connect API | 8083 | http\://<your-ec2-public-ip>:8083 |
 | ClickHouse HTTP   | 8123 | http\://<your-ec2-public-ip>:8123 |
 | ClickHouse TCP    | 9000 | (Used internally by client)       |
+
+
+to check connector status
+ssh inside ec2 --> curl -s http://localhost:8083/connectors/mysql-connector/status
