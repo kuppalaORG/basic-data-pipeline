@@ -100,7 +100,8 @@ services:
         hard: 262144
     volumes:
       - clickhouse_data:/var/lib/clickhouse
-      - ./init.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+
 
     kafka-ui:
       image: provectuslabs/kafka-ui
