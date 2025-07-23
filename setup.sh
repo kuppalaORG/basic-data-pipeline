@@ -4,7 +4,7 @@ set -e
 
 ################################################################################
 # 🚀 Debezium CDC Pipeline Setup for Amazon Linux 2 (AMI Linux 2)
-# 🛠️ Prerequisites: 
+# 🛠️ Prerequisites:
 #   - Run: chmod +x setup.sh
 #   - Execute: ./setup.sh
 ################################################################################
@@ -103,28 +103,28 @@ services:
       - ./init.sh:/docker-entrypoint-initdb.d/init.sh:ro
 
 
-    kafka-ui:
-      image: provectuslabs/kafka-ui
-      container_name: kafka-ui
-      ports:
-        - "8081:8080"
-      environment:
-        KAFKA_CLUSTERS_0_NAME: local
-        KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-      depends_on:
-        - kafka
-      networks:
-        - kafka_net
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    container_name: kafka-ui
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      - kafka
+    networks:
+      - kafka_net
 
-    clickhouse-ui:
-      image: spoonest/clickhouse-tabix-web-client
-      container_name: clickhouse-ui
-      ports:
-        - "8888:80"
-      depends_on:
-        - clickhouse
-      networks:
-        - kafka_net
+  clickhouse-ui:
+    image: spoonest/clickhouse-tabix-web-client
+    container_name: clickhouse-ui
+    ports:
+      - "8888:80"
+    depends_on:
+      - clickhouse
+    networks:
+      - kafka_net
 
 
 volumes:
