@@ -42,3 +42,8 @@ use Direct CH
 
 to check connector status
 ssh inside ec2 --> curl -s http://localhost:8083/connectors/mysql-connector/status
+
+execute and delete connector
+
+curl -X DELETE http://localhost:8083/connectors/mysql-connector
+./register-connector.sh  # Run your script again
