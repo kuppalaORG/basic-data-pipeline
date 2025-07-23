@@ -109,12 +109,15 @@ services:
     ports:
       - "8081:8080"
     environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-    depends_on:
-      - kafka
-    networks:
-      - kafka_net
+          KAFKA_CLUSTERS_0_NAME: local
+          KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+          KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: local-connect
+          KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://connect:8083
+        depends_on:
+          - kafka
+          - connect
+        networks:
+          - kafka_net
 
   clickhouse-ui:
     image: spoonest/clickhouse-tabix-web-client
