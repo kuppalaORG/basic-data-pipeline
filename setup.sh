@@ -80,7 +80,9 @@ done
 echo "🔌 Creating connector registration script..."
 
 chmod +x register-connector.sh
+chmod +x init.sh
 ./register-connector.sh
+./init.sh
 echo "✅ Done. All services are up!"
 
 # Start Kafka-to-ClickHouse consumer in background
