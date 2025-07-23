@@ -13,7 +13,14 @@ sudo yum update -y
 sudo yum install -y docker
 sudo systemctl start docker
 sudo systemctl enable docker
+
+echo "👤 Adding current user to docker group..."
 sudo usermod -aG docker ec2-user
+
+# Ensure correct permissions on Docker socket immediately
+echo "🔒 Setting Docker socket permissions..."
+sudo chmod 666 /var/run/docker.sock
+
 
 echo "🐳 Installing Docker Compose..."
 DOCKER_COMPOSE_VERSION=1.29.2
