@@ -77,7 +77,6 @@ while true; do
 done
 
 
-
 echo "✅ Kafka Connect is ready!"
 
 echo "🔌 Creating connector registration script..."
@@ -122,6 +121,6 @@ rm -f status.txt response.json
 EOF
 
 chmod +x register-connector.sh
-./register-connector.sh
+#./register-connector.sh
 
 echo "✅ Done. All services are up!"
