@@ -2,9 +2,16 @@
 
 set -e
 
+################################################################################
+# 🚀 Debezium CDC Pipeline Setup for Amazon Linux 2 (AMI Linux 2)
+# 🛠️ Prerequisites: 
+#   - Run: chmod +x setup.sh
+#   - Execute: ./setup.sh
+# 📌 Note: Tested on EC2 instance with AMI Linux 2 (Amazon Linux 2 AMI 2.0)
+################################################################################
+
 echo "🔧 Installing Docker..."
 sudo yum update -y
-#sudo amazon-linux-extras enable docker
 sudo yum install -y docker
 sudo systemctl start docker
 sudo systemctl enable docker
@@ -16,12 +23,12 @@ sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPO
   -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 
-echo "🧰 Cloning the CDC pipeline repo (or using local dir)..."
+echo "📁 Setting up CDC pipeline directory..."
 mkdir -p ~/basic-data-pipeline
 cd ~/basic-data-pipeline
 
 echo "📦 Writing docker-compose.yml..."
-cat > docker-compose.yml <<EOF
+cat > docker-compose.yml <<'EOF'
 version: '3'
 services:
 
@@ -84,7 +91,7 @@ services:
 EOF
 
 echo "📄 Writing init.sql..."
-cat > init.sql <<EOF
+cat > init.sql <<'EOF'
 CREATE DATABASE IF NOT EXISTS testdb;
 
 USE testdb;
@@ -102,17 +109,19 @@ GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, LOC
 FLUSH PRIVILEGES;
 EOF
 
-echo "🚀 Bringing up containers..."
+echo "🚀 Bringing up Docker containers..."
 docker-compose up -d
 
 echo "⏳ Waiting for Kafka Connect to be ready..."
 sleep 30
 
-echo "🔌 Registering Debezium connector..."
-cat > register-connector.sh <<EOF
+echo "🔌 Creating connector registration script..."
+cat > register-connector.sh <<'EOF'
 #!/bin/bash
 
-curl -X POST http://localhost:8083/connectors \
+echo "🔌 Registering Debezium MySQL Connector..."
+
+curl -s -o response.json -w "%{http_code}" -X POST http://localhost:8083/connectors \
   -H "Content-Type: application/json" \
   -d '{
     "name": "mysql-connector",
@@ -127,17 +136,26 @@ curl -X POST http://localhost:8083/connectors \
       "database.include.list": "testdb",
       "table.include.list": "testdb.employees",
       "include.schema.changes": "false",
-      "database.history.kafka.bootstrap.servers": "kafka:9092",
-      "database.history.kafka.topic": "schema-changes.testdb"
+      "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
+      "schema.history.internal.kafka.topic": "schema-changes.testdb"
     }
-  }'
+  }' > status.txt
+
+STATUS=$(cat status.txt)
+
+if [[ "$STATUS" == "201" ]]; then
+  echo "✅ Connector created successfully!"
+elif [[ "$STATUS" == "409" ]]; then
+  echo "⚠️ Connector already exists!"
+else
+  echo "❌ Connector creation failed. Status Code: $STATUS"
+  cat response.json
+fi
+
+rm -f status.txt response.json
 EOF
 
 chmod +x register-connector.sh
 ./register-connector.sh
 
-echo "✅ Debezium CDC pipeline deployed and connector registered!"
-
-#execute below
-#chmod +x setup.sh
-#./setup.sh
+echo "🎉 ✅ Debezium CDC pipeline fully deployed and connector registered!"
