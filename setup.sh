@@ -84,6 +84,7 @@ chmod +x register-connector.sh
 ./register-connector.sh
 
 echo "✅ Done. All services are up!"
+pip3 install --no-cache-dir -r requirements.txt
 
 # Start Kafka-to-ClickHouse consumer in background
 nohup python3 consumer_to_file.py > consumer.log 2>&1 &

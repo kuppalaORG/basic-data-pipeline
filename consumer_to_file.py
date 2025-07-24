@@ -6,7 +6,7 @@ import time
 client = clickhouse_connect.get_client(host='localhost', port=8123)
 
 consumer = KafkaConsumer(
-    bootstrap_servers='172.31.14.166:9092',
+    bootstrap_servers='kafka:9092',  # ← Replace hardcoded IP
     auto_offset_reset='earliest',
     group_id='clickhouse-consumer',
     value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None
