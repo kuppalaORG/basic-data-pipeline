@@ -3,15 +3,17 @@ import json
 import clickhouse_connect
 import time
 
+# Connect to ClickHouse (hosted on same EC2)
 client = clickhouse_connect.get_client(host='localhost', port=8123)
 
+# Connect to Kafka (running in Docker, but exposed to EC2 host on 9092)
 consumer = KafkaConsumer(
-    bootstrap_servers='kafka:9092',  # ← Replace hardcoded IP
+    pattern='^dbserver1\\.testdb\\..*$',
+    bootstrap_servers='localhost:9092',
     auto_offset_reset='earliest',
     group_id='clickhouse-consumer',
     value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None
 )
-
 # Keep track of subscribed topics to avoid re-subscription
 subscribed_topics = set()
 
