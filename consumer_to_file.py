@@ -8,13 +8,14 @@ client = clickhouse_connect.get_client(host='localhost', port=8123)
 
 # Connect to Kafka (running in Docker, but exposed to EC2 host on 9092)
 consumer = KafkaConsumer(
-    pattern='^dbserver1\\.testdb\\..*$',
     bootstrap_servers='localhost:9092',
     auto_offset_reset='earliest',
     group_id='clickhouse-consumer',
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None
+    value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None,
+    enable_auto_commit=True
 )
 # Keep track of subscribed topics to avoid re-subscription
+consumer.subscribe(pattern=r'^dbserver1\.testdb\..*$')
 subscribed_topics = set()
 
 def ensure_table(table_name, sample_record):
