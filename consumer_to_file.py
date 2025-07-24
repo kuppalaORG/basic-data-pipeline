@@ -17,13 +17,26 @@ client = clickhouse_connect.get_client(host='localhost', port=8123)
 # )
 
 consumer = KafkaConsumer(
-    'dbserver1.testdb.employees',
-    bootstrap_servers='localhost:9092',
-    group_id='clickhouse-consumer-test1',
+    bootstrap_servers='localhost:9092',   # change if needed
+    group_id='debug-connection-test',
     auto_offset_reset='earliest',
-    enable_auto_commit=False,
-    value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+    consumer_timeout_ms=5000              # exit after timeout
 )
+
+print("✅ Connected to Kafka broker.")
+
+# List topics from broker
+topics = consumer.topics()
+print(f"📌 Available topics: {topics}")
+
+# Describe partitions for your topic (optional)
+topic = 'dbserver1.testdb.employees'
+if topic in topics:
+    partitions = consumer.partitions_for_topic(topic)
+    print(f"🧩 Partitions for topic '{topic}': {partitions}")
+else:
+    print(f"❌ Topic '{topic}' not found on broker.")
 
 for message in consumer:
     print("Received:", message.value)
