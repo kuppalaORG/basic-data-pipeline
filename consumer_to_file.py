@@ -2,7 +2,7 @@ from kafka import KafkaConsumer
 import json
 import clickhouse_connect
 import time
-
+import re
 # Connect to ClickHouse (hosted on same EC2)
 client = clickhouse_connect.get_client(host='localhost', port=8123)
 
@@ -15,7 +15,7 @@ consumer = KafkaConsumer(
     enable_auto_commit=True
 )
 # Keep track of subscribed topics to avoid re-subscription
-consumer.subscribe(pattern=r'^dbserver1\.testdb\..*$')
+consumer.subscribe(pattern=re.compile(r'^dbserver1\.testdb\..*'))
 subscribed_topics = set()
 
 def ensure_table(table_name, sample_record):
