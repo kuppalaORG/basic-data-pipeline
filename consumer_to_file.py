@@ -8,15 +8,27 @@ import clickhouse_connect
 client = clickhouse_connect.get_client(host='localhost', port=8123)
 
 # ✅ Kafka consumer setup
+# consumer = KafkaConsumer(
+#     bootstrap_servers='localhost:9092',
+#     auto_offset_reset='earliest',
+#     group_id='clickhouse-consumer-test-01',
+#     enable_auto_commit=True,
+#     value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None
+# )
+
 consumer = KafkaConsumer(
+    'dbserver1.testdb.employees',
     bootstrap_servers='localhost:9092',
+    group_id='clickhouse-consumer-test1',
     auto_offset_reset='earliest',
-    group_id='clickhouse-consumer-test-01',
-    enable_auto_commit=True,
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None
+    enable_auto_commit=False,
+    value_deserializer=lambda m: json.loads(m.decode('utf-8'))
 )
 
-# ✅ Subscribe to all relevant topics (only once)
+for message in consumer:
+    print("Received:", message.value)
+
+
 consumer.subscribe(pattern=re.compile(r'^dbserver1\.testdb\..*'))
 
 # ✅ Keep track of created tables
