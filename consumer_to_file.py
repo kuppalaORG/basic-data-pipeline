@@ -9,7 +9,7 @@ client = clickhouse_connect.get_client(host='localhost', port=8123)
 
 # ✅ Kafka consumer setup
 consumer = KafkaConsumer(
-    bootstrap_servers='localhost:9092',  # Should be reachable from the script
+    bootstrap_servers='localhost:9092',
     auto_offset_reset='earliest',
     group_id='clickhouse-consumer-test-01',
     enable_auto_commit=True,
@@ -51,6 +51,7 @@ print("🚀 Listening to Debezium topics...")
 
 # ✅ Main consume loop
 for message in consumer:
+    print("Raw Kafka message:", message.value)
     topic = message.topic
     table = topic.split('.')[-1]
 
