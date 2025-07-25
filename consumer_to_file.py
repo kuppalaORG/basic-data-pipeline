@@ -1,55 +1,21 @@
-import json
-import re
-import time
 from kafka import KafkaConsumer
+import json
 import clickhouse_connect
-
-# ✅ ClickHouse connection (assumes running on host EC2)
-client = clickhouse_connect.get_client(host='localhost', port=8123)
-
-# ✅ Kafka consumer setup
-# consumer = KafkaConsumer(
-#     bootstrap_servers='localhost:9092',
-#     auto_offset_reset='earliest',
-#     group_id='clickhouse-consumer-test-01',
-#     enable_auto_commit=True,
-#     value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None
-# )
-
-from kafka import KafkaConsumer
-import json
 
 topic = 'dbserver1.testdb.employees'
 
+# ✅ Kafka consumer with deserializer
 consumer = KafkaConsumer(
-    'dbserver1.testdb.employees',
+    topic,
     bootstrap_servers='localhost:9092',
-    group_id='debug-connection-test',
+    group_id='debug-connection-test-' + str(int(__import__('time').time())),
     auto_offset_reset='earliest',
     enable_auto_commit=False,
+    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
     consumer_timeout_ms=10000
 )
-print("✅ Connected to Kafka broker.")
 
-# Debug info
-topics = consumer.topics()
-print(f"📌 Available topics: {topics}")
-
-if topic in topics:
-    partitions = consumer.partitions_for_topic(topic)
-
-    print(f"🧩 Partitions for topic '{topic}': {partitions}")
-
-else:
-    print(f"❌ Topic '{topic}' not found on broker.")
-
-# Start consuming
-for message in consumer:
-    print("Position:", consumer.position(msg.partition))
-
-    print("✅ Received:", message.value)
-
-# ✅ Keep track of created tables
+client = clickhouse_connect.get_client(host='localhost', port=8123)
 created_tables = set()
 
 def ensure_table(table_name, sample_record):
@@ -66,7 +32,6 @@ def ensure_table(table_name, sample_record):
         else:
             col_type = 'String'
         cols.append(f"{k} {col_type}")
-
     ddl = f"""
     CREATE TABLE IF NOT EXISTS raw.{table_name} (
         {', '.join(cols)}
@@ -79,29 +44,31 @@ def ensure_table(table_name, sample_record):
 
 print("🚀 Listening to Debezium topics...")
 
-# ✅ Main consume loop
 for message in consumer:
-    print("Raw Kafka message:", message.value)
-    topic = message.topic
-    table = topic.split('.')[-1]
+    try:
+        print("📨 Message received.")
+        payload = message.value.get("payload")
+        if not payload:
+            continue
 
-    payload = message.value.get("payload")
-    if not payload:
-        continue
+        op = payload.get("op")
+        table = message.topic.split('.')[-1]
 
-    op = payload.get("op")
-    if op in ["c", "u", "r"]:  # create, update, snapshot read
-        after = payload.get("after", {})
-        if after:
-            ensure_table(table, after)
-            values = [[after[k] for k in after]]
-            client.insert(f"raw.{table}", values, column_names=list(after.keys()))
-            print(f"✅ Inserted into raw.{table}: {after}")
+        if op in ["c", "u", "r"]:
+            after = payload.get("after", {})
+            if after:
+                ensure_table(table, after)
+                values = [[after[k] for k in after]]
+                client.insert(f"raw.{table}", values, column_names=list(after.keys()))
+                print(f"Inserted into raw.{table}: {after}")
 
-    elif op == "d":
-        before = payload.get("before", {})
-        if before:
-            record_id = before.get("id")
-            if record_id is not None:
-                client.command(f"ALTER TABLE raw.{table} DELETE WHERE id = {int(record_id)}")
-                print(f"🗑️ Deleted from raw.{table}: {record_id}")
+        elif op == "d":
+            before = payload.get("before", {})
+            if before:
+                record_id = before.get("id")
+                if record_id is not None:
+                    client.command(f"ALTER TABLE raw.{table} DELETE WHERE id = {int(record_id)}")
+                    print(f" Deleted from raw.{table}: {record_id}")
+
+    except Exception as e:
+        print(f"Error processing message: {e}")
