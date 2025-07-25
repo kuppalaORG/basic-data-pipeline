@@ -22,15 +22,13 @@ import json
 topic = 'dbserver1.testdb.employees'
 
 consumer = KafkaConsumer(
-    topic,  # ✅ <== subscribe to topic here!
+    'dbserver1.testdb.employees',
     bootstrap_servers='localhost:9092',
     group_id='debug-connection-test',
     auto_offset_reset='earliest',
     enable_auto_commit=False,
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    consumer_timeout_ms=5000
+    consumer_timeout_ms=10000
 )
-
 print("✅ Connected to Kafka broker.")
 
 # Debug info
@@ -39,12 +37,16 @@ print(f"📌 Available topics: {topics}")
 
 if topic in topics:
     partitions = consumer.partitions_for_topic(topic)
+
     print(f"🧩 Partitions for topic '{topic}': {partitions}")
+
 else:
     print(f"❌ Topic '{topic}' not found on broker.")
 
 # Start consuming
 for message in consumer:
+    print("Position:", consumer.position(msg.partition))
+
     print("✅ Received:", message.value)
 
 # ✅ Keep track of created tables
