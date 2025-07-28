@@ -7,14 +7,14 @@ topic = 'dbserver1.testdb.employees'
 # Kafka consumer with deserializer
 consumer = KafkaConsumer(
     topic,
-    bootstrap_servers=['54.196.249.228:29092','54.196.249.228:9092', 'localhost:9092'],
-    group_id='debug-connection-test-' + str(int(__import__('time').time())),
+    bootstrap_servers=['localhost:9092'],
+    group_id='debug-' + str(int(time.time())),
     auto_offset_reset='earliest',
     enable_auto_commit=False,
     value_deserializer=lambda m: json.loads(m.decode('utf-8')),
     consumer_timeout_ms=10000
 )
-
+print("Partitions for topic:", consumer.partitions_for_topic(topic))
 client = clickhouse_connect.get_client(host='localhost', port=8123)
 created_tables = set()
 
