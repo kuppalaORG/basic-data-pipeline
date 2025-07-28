@@ -48,7 +48,7 @@ try:
             print("⏳ Waiting for message...")
             continue
         if msg.error():
-            print("❌ Kafka error:", msg.error())
+            print("Kafka error:", msg.error())
             continue
 
         try:
@@ -72,10 +72,10 @@ try:
                 record_id = before.get("id")
                 if record_id is not None:
                     client.command(f"ALTER TABLE raw.{table} DELETE WHERE id = {int(record_id)}")
-                    print(f"❌ Deleted from raw.{table}: {record_id}")
+                    print(f" Deleted from raw.{table}: {record_id}")
 
         except Exception as e:
-            print("❌ Processing error:", e)
+            print(" Processing error:", e)
 
 except KeyboardInterrupt:
     print(" Stopped by user")
