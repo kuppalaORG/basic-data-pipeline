@@ -1,60 +1,78 @@
-from confluent_kafka import Consumer, KafkaException, TopicPartition
+from confluent_kafka import Consumer, KafkaException
+from confluent_kafka.admin import AdminClient
 import clickhouse_connect
 import json
 import time
-from confluent_kafka.admin import AdminClient
-admin = AdminClient({'bootstrap.servers': 'localhost:29092'})
-metadata = admin.list_topics(timeout=10)
-topics = [t for t in metadata.topics if t.startswith("dbserver1.testdb.")]
 
+# Kafka config
+BOOTSTRAP_SERVERS = 'localhost:29092'
+TOPIC_PREFIX = 'dbserver1.testdb.'
+
+# Connect to Kafka and discover topics
+admin = AdminClient({'bootstrap.servers': BOOTSTRAP_SERVERS})
+metadata = admin.list_topics(timeout=10)
+topics = [t for t in metadata.topics if t.startswith(TOPIC_PREFIX)]
 print("Topics detected:", topics)
 
-# topic = 'dbserver1.testdb.employees'
-
+# Kafka consumer setup
 consumer = Consumer({
-    'bootstrap.servers': 'localhost:29092',
-    'group.id': 'confluent-test-' + str(int(time.time())),
+    'bootstrap.servers': BOOTSTRAP_SERVERS,
+    'group.id': 'confluent-dynamic-' + str(int(time.time())),
     'auto.offset.reset': 'earliest'
 })
-
 consumer.subscribe(topics)
-print("🚀 Subscribed to topic:", topics)
+print("🚀 Subscribed to topics:", topics)
 
+# ClickHouse setup
 client = clickhouse_connect.get_client(host='localhost', port=8123)
 client.command("CREATE DATABASE IF NOT EXISTS raw")
+
+# Used to track which tables we already created
 created_tables = set()
+
+# Primary key fallback detection
+PRIMARY_KEY_CANDIDATES = ['id', 'uuid', 'record_id', 'pk', 'employee_id']
 
 def ensure_table(table_name, sample_record):
     if table_name in created_tables:
         return
+
+    # Infer column types
     cols = []
     for k, v in sample_record.items():
-        col_type = 'Int64' if k == 'id' else (
-            'Float64' if isinstance(v, float) else
-            'Int64' if isinstance(v, int) else
-            'String'
-        )
+        if isinstance(v, int):
+            col_type = 'Int64'
+        elif isinstance(v, float):
+            col_type = 'Float64'
+        else:
+            col_type = 'String'
         cols.append(f"{k} {col_type}")
+
+    # Detect primary key for ORDER BY
+    order_by_col = next((col for col in PRIMARY_KEY_CANDIDATES if col in sample_record), list(sample_record.keys())[0])
+
+    # DDL creation
     ddl = f"""
     CREATE TABLE IF NOT EXISTS raw.{table_name} (
         {', '.join(cols)}
     ) ENGINE = MergeTree()
-    ORDER BY id
+    ORDER BY {order_by_col}
     """
     client.command(ddl)
     created_tables.add(table_name)
-    print(f" Ensured table raw.{table_name}")
+    print(f"Ensured table raw.{table_name} (ORDER BY {order_by_col})")
 
-print(" Listening to Debezium topics...")
+# Begin consumption
+print("📡 Listening to Debezium topics...")
 
 try:
     while True:
-        msg = consumer.poll(5.0)
+        msg = consumer.poll(3.0)
         if msg is None:
-            print(" Waiting for message...")
+            print("⌛ Waiting for message...")
             continue
         if msg.error():
-            print(" Error:", msg.error())
+            print("❗ Error:", msg.error())
             continue
 
         val = json.loads(msg.value().decode('utf-8'))
@@ -70,16 +88,21 @@ try:
             if after:
                 ensure_table(table, after)
                 client.insert(f"raw.{table}", [list(after.values())], column_names=list(after.keys()))
-                print(f" Inserted into raw.{table}: {after}")
+                print(f"📥 Inserted into raw.{table}: {after}")
 
         elif op == "d":
             before = payload.get("before", {})
-            record_id = before.get("id")
+            record_id = before.get("id") or before.get("uuid")
             if record_id:
-                client.command(f"ALTER TABLE raw.{table} DELETE WHERE id = {int(record_id)}")
-                print(f" Deleted from raw.{table}: {record_id}")
+                table_full = f"raw.{table}"
+                if isinstance(record_id, str):
+                    client.command(f"ALTER TABLE {table_full} DELETE WHERE id = '{record_id}'")
+                else:
+                    client.command(f"ALTER TABLE {table_full} DELETE WHERE id = {record_id}")
+                print(f"🗑️ Deleted from {table_full}: {record_id}")
 
 except KeyboardInterrupt:
-    print(" Interrupted by user")
+    print("Interrupted by user")
+
 finally:
     consumer.close()
