@@ -3,26 +3,26 @@ import json
 import clickhouse_connect
 import time
 
+
 topic = 'dbserver1.testdb.employees'
 
-# Kafka consumer with deserializer
 consumer = KafkaConsumer(
     topic,
     bootstrap_servers=['localhost:9092'],
     group_id='debug-' + str(int(time.time())),
     auto_offset_reset='earliest',
     enable_auto_commit=False,
-    # value_deserializer=lambda m: json.loads(m.decode('utf-8')),
     consumer_timeout_ms=10000
 )
+
 print("Partitions for topic:", consumer.partitions_for_topic(topic))
-client = clickhouse_connect.get_client(host='localhost', port=8123)
-created_tables = set()
+consumer.subscribe([topic])
+print("Assigned partitions:", consumer.assignment())
+
 for message in consumer:
-    print("✅ New Kafka Message:")
+    print(" New Kafka Message:")
     print("Key:", message.key)
     print("Raw Value:", message.value)
-    print("Full Message:", message)
 
 def ensure_table(table_name, sample_record):
     if table_name in created_tables:
