@@ -15,8 +15,11 @@ consumer = KafkaConsumer(
     consumer_timeout_ms=10000
 )
 
+# 🔁 Manual partition assignment to avoid relying on subscribe() coordination delay
+partition = TopicPartition(topic, 0)
+consumer.assign([partition])
+
 print("Partitions for topic:", consumer.partitions_for_topic(topic))
-consumer.subscribe([topic])
 print("Assigned partitions:", consumer.assignment())
 
 for message in consumer:
