@@ -15,6 +15,7 @@ consumer.subscribe([topic])
 print("🚀 Subscribed to topic:", topic)
 
 client = clickhouse_connect.get_client(host='localhost', port=8123)
+client.command("CREATE DATABASE IF NOT EXISTS raw")
 created_tables = set()
 
 def ensure_table(table_name, sample_record):
