@@ -1,27 +1,28 @@
-from kafka import KafkaConsumer,TopicPartition
+from kafka import KafkaConsumer, TopicPartition
 import json
 import clickhouse_connect
 import time
 
-
 topic = 'dbserver1.testdb.employees'
 
+# Connect to Kafka
 consumer = KafkaConsumer(
     bootstrap_servers=['localhost:9092'],
     auto_offset_reset='earliest',
     enable_auto_commit=False,
-    consumer_timeout_ms=10000
+    consumer_timeout_ms=10000,
+    value_deserializer=lambda m: json.loads(m.decode('utf-8'))
 )
 
 partition = TopicPartition(topic, 0)
-consumer.assign([partition])  # ✅ Manual assignment — works reliably
+consumer.assign([partition])
 
 print("Assigned partitions:", consumer.assignment())
 
-for message in consumer:
-    print("✅ Message received:")
-    print("Key:", message.key)
-    print("Value:", message.value.decode('utf-8'))
+# Connect to ClickHouse
+client = clickhouse_connect.get_client(host='localhost', port=8123)
+created_tables = set()
+
 def ensure_table(table_name, sample_record):
     if table_name in created_tables:
         return
@@ -48,9 +49,10 @@ def ensure_table(table_name, sample_record):
 
 print("🚀 Listening to Debezium topics...")
 
+# Main consumption loop
 for message in consumer:
     try:
-        print("📨 Message received.")
+        print("📨 New Message")
         payload = message.value.get("payload")
         if not payload:
             continue
@@ -72,7 +74,7 @@ for message in consumer:
                 record_id = before.get("id")
                 if record_id is not None:
                     client.command(f"ALTER TABLE raw.{table} DELETE WHERE id = {int(record_id)}")
-                    print(f" Deleted from raw.{table}: {record_id}")
+                    print(f"❌ Deleted from raw.{table}: {record_id}")
 
     except Exception as e:
-        print(f"Error processing message: {e}")
+        print(f"❌ Error processing message: {e}")
