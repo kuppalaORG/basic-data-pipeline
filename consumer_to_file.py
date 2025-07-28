@@ -4,10 +4,10 @@ import clickhouse_connect
 
 topic = 'dbserver1.testdb.employees'
 
-# ✅ Kafka consumer with deserializer
+# Kafka consumer with deserializer
 consumer = KafkaConsumer(
     topic,
-    bootstrap_servers=['172.31.93.31:9092', 'localhost:9092'],
+    bootstrap_servers=['54.196.249.228:9092', 'localhost:9092'],
     group_id='debug-connection-test-' + str(int(__import__('time').time())),
     auto_offset_reset='earliest',
     enable_auto_commit=False,

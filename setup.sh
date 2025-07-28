@@ -13,7 +13,7 @@ sudo yum update -y
 sudo yum install -y docker
 sudo systemctl start docker
 sudo systemctl enable docker
-
+sudo dnf install -y libxcrypt-compat
 echo "👤 Adding current user to docker group..."
 sudo usermod -aG docker ec2-user
 
@@ -84,6 +84,7 @@ chmod +x register-connector.sh
 ./register-connector.sh
 
 echo "✅ Done. All services are up!"
+sudo dnf install -y python3 python3-pip
 pip3 install --no-cache-dir -r requirements.txt
 
 # Start Kafka-to-ClickHouse consumer in background
