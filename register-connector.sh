@@ -21,8 +21,9 @@ STATUS_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST http://localhos
       "auto.create.topics.enable":"true",
       "table.ignore.builtin": "true",
       "include.schema.changes": "true",
-      "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
-      "schema.history.internal.kafka.topic": "schema-changes.testdb"
+      "schema.history.internal.kafka.bootstrap.servers": "localhost:9092",
+      "schema.history.internal.kafka.topic": "schema-changes.testdb",
+      "bootstrap.servers": "localhost:9092"
     }
   }')
 
