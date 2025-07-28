@@ -29,7 +29,9 @@ services:
     extra_hosts:
       - "kafka:host-gateway"
     networks:
-      - kafka_net
+       kafka_net:
+          aliases:
+            - kafka
 
 
 
@@ -73,7 +75,9 @@ services:
     volumes:
       - ./plugins:/debezium-plugins
     networks:
-      - kafka_net
+      kafka_net:
+        aliases:
+          - connect
 
 
   clickhouse:
