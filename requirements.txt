@@ -2,3 +2,4 @@ clickhouse-connect==0.5.25
 kafka-python==2.0.2
 urllib3==1.26.20
 numpy==1.21.6
+confluent_kafka
