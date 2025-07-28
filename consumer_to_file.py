@@ -1,6 +1,7 @@
 from kafka import KafkaConsumer
 import json
 import clickhouse_connect
+import time
 
 topic = 'dbserver1.testdb.employees'
 
