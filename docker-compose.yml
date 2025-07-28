@@ -70,6 +70,10 @@ services:
       VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
       CONNECT_PLUGIN_PATH: /kafka/connect,/usr/share/java,/debezium-plugins
       SCHEMA_HISTORY_INTERNAL_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_REST_HOST_NAME: 0.0.0.0
+      CONNECT_REST_ADVERTISED_HOST_NAME: localhost
+      CONNECT_REST_PORT: 8083
+
     volumes:
       - ./plugins:/debezium-plugins
     networks:
