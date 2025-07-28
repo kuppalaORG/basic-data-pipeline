@@ -17,7 +17,7 @@ consumer = Consumer({
     'auto.offset.reset': 'earliest'
 })
 
-consumer.subscribe([topics])
+consumer.subscribe(topics)
 print("🚀 Subscribed to topic:", topics)
 
 client = clickhouse_connect.get_client(host='localhost', port=8123)
