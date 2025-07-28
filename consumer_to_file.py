@@ -1,4 +1,4 @@
-from kafka import KafkaConsumer
+from kafka import KafkaConsumer,TopicPartition
 import json
 import clickhouse_connect
 import time
