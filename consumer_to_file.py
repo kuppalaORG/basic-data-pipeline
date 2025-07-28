@@ -7,26 +7,21 @@ import time
 topic = 'dbserver1.testdb.employees'
 
 consumer = KafkaConsumer(
-    topic,
     bootstrap_servers=['localhost:9092'],
-    group_id='debug-' + str(int(time.time())),
     auto_offset_reset='earliest',
     enable_auto_commit=False,
     consumer_timeout_ms=10000
 )
 
-# 🔁 Manual partition assignment to avoid relying on subscribe() coordination delay
 partition = TopicPartition(topic, 0)
-consumer.assign([partition])
+consumer.assign([partition])  # ✅ Manual assignment — works reliably
 
-print("Partitions for topic:", consumer.partitions_for_topic(topic))
 print("Assigned partitions:", consumer.assignment())
 
 for message in consumer:
-    print(" New Kafka Message:")
+    print("✅ Message received:")
     print("Key:", message.key)
-    print("Raw Value:", message.value)
-
+    print("Value:", message.value.decode('utf-8'))
 def ensure_table(table_name, sample_record):
     if table_name in created_tables:
         return
