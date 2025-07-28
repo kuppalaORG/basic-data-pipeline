@@ -6,7 +6,7 @@ import time
 topic = 'dbserver1.testdb.employees'
 
 consumer = Consumer({
-    'bootstrap.servers': 'localhost:29092'
+    'bootstrap.servers': 'localhost:29092',
     'group.id': 'confluent-test-' + str(int(time.time())),
     'auto.offset.reset': 'earliest'
 })
