@@ -1,23 +1,42 @@
-from kafka import KafkaConsumer, TopicPartition
+from confluent_kafka import Consumer
 import json
-import clickhouse_connect
 import time
 
 topic = 'dbserver1.testdb.employees'
 
-# Connect to Kafka
-consumer = KafkaConsumer(
-    bootstrap_servers=['localhost:9092'],
-    auto_offset_reset='earliest',
-    enable_auto_commit=False,
-    consumer_timeout_ms=10000,
-    value_deserializer=lambda m: json.loads(m.decode('utf-8'))
-)
+consumer = Consumer({
+    'bootstrap.servers': 'localhost:9092',
+    'group.id': 'confluent-test-' + str(int(time.time())),
+    'auto.offset.reset': 'earliest'
+})
 
-partition = TopicPartition(topic, 0)
-consumer.assign([partition])
+consumer.subscribe([topic])
+print("🚀 Subscribed to topic:", topic)
 
-print("Assigned partitions:", consumer.assignment())
+try:
+    while True:
+        msg = consumer.poll(5.0)
+        if msg is None:
+            print("⏳ Waiting for message...")
+            continue
+        if msg.error():
+            print("❌ Consumer error:", msg.error())
+            continue
+
+        print("\nMessage received:")
+        print("Raw:", msg.value())
+
+        try:
+            decoded = json.loads(msg.value().decode('utf-8'))
+            print("Decoded JSON:", json.dumps(decoded, indent=2))
+        except Exception as e:
+            print("❌ JSON decode error:", e)
+
+except KeyboardInterrupt:
+    print("👋 Exit requested")
+
+finally:
+    consumer.close()
 
 # Connect to ClickHouse
 client = clickhouse_connect.get_client(host='localhost', port=8123)
