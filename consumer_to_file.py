@@ -91,15 +91,24 @@ def normalize_value(value):
     try:
         if value is None:
             return ''
-        elif isinstance(value, (bool, int, float, str)):
-            # Convert large timestamps (likely milliseconds) to seconds
-            if isinstance(value, (int, float)) and value > 1e12:
-                return int(value) // 1000
+        elif isinstance(value, (int, float)) and value > 1e12:
+            # Likely a timestamp in milliseconds — convert to seconds
+            return int(value) // 1000
+        elif isinstance(value, (bool, int, float)):
             return value
-        elif isinstance(value, (dict, list, tuple)):
-            return json.dumps(value, default=str)
         elif isinstance(value, bytes):
             return value.decode('utf-8', errors='replace')
+        elif isinstance(value, str):
+            # Check if it's a stringified JSON (like config) — if so, return as-is
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, (dict, list)):
+                    return value  # already a JSON string — don't dump again
+            except:
+                pass
+            return value  # plain string
+        elif isinstance(value, (dict, list, tuple)):
+            return json.dumps(value, default=str)
         else:
             return str(value)
     except Exception as e:
