@@ -92,19 +92,19 @@ def normalize_value(value):
         if value is None:
             return ''
         elif isinstance(value, (bool, int, float, str)):
+            # Convert large timestamps (likely milliseconds) to seconds
+            if isinstance(value, (int, float)) and value > 1e12:
+                return int(value) // 1000
             return value
-        elif isinstance(value, Decimal):
-            return float(value)
-        elif isinstance(value, (datetime.datetime, datetime.date)):
-            return value.isoformat()
-        elif isinstance(value, UUID):
-            return str(value)
-        elif isinstance(value, (dict, list)):
-            return json.dumps(value)
+        elif isinstance(value, (dict, list, tuple)):
+            return json.dumps(value, default=str)
+        elif isinstance(value, bytes):
+            return value.decode('utf-8', errors='replace')
         else:
             return str(value)
     except Exception as e:
-        return f"[INVALID: {str(e)}]"
+        return f"[ERROR: {e}]"
+
 def infer_clickhouse_type(value):
     return TYPE_MAPPING.get(type(value), 'String')
 
@@ -112,10 +112,17 @@ def ensure_table(table_name, sample_record):
     if table_name in created_tables:
         return
 
-    cols = []
+    cols = []  # ✅ FIXED: declared outside loop
+
     for k, v in sample_record.items():
-        col_type = infer_clickhouse_type(v)
-        cols.append(f"{k} {col_type}")
+        if k in ["value", "source_params", "child_config", "config"]:
+            col_type = "String"
+        elif k.endswith("_on") and isinstance(v, (int, float)) and v > 1e12:
+            col_type = "DateTime"
+        else:
+            col_type = infer_clickhouse_type(v)
+
+        cols.append(f"{k} {col_type}")  # ✅ only append once
 
     order_by = next((key for key in PRIMARY_KEY_CANDIDATES if key in sample_record), list(sample_record.keys())[0])
     ddl = f"""
@@ -129,7 +136,7 @@ def ensure_table(table_name, sample_record):
     print(f"🛠Ensured table raw.{table_name} with ORDER BY {order_by}")
 
 # Start consuming
-print("🚀 Listening to Debezium topics...")
+print(" Listening to Debezium topics...")
 try:
     while True:
         msg = consumer.poll(POLL_TIMEOUT)
