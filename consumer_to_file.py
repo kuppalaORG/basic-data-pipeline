@@ -62,7 +62,13 @@ if not os.path.exists(DLQ_PATH):
     open(DLQ_PATH, 'w').close()
 #Initialize ClickHouse client
 client = clickhouse_connect.get_client(host='localhost', port=8123, username='default', password='')
-
+# Ensure 'raw' database exists
+try:
+    client.command("CREATE DATABASE IF NOT EXISTS raw")
+    print(" Ensured database 'raw' exists.")
+except Exception as e:
+    print(f" Failed to create database 'raw': {e}")
+    exit(1)
 def write_to_dlq(message, error, table=None, column=None, value=None):
     with open(DLQ_PATH, 'a') as f:
         f.write("🔥 INSERT FAILURE\n")
