@@ -226,7 +226,7 @@ try:
                         # Pinpoint problematic key if possible
                         for key, value in normalized_record.items():
                             try:
-                                client.insert_dicts(f"raw.{table}", [{key: value}])
+                                client.insert_dicts(f"raw.{table}", [record])
                             except Exception as col_err:
                                 write_to_dlq(after, str(col_err), table, key, value)
                                 break  # break after first offending column
