@@ -87,16 +87,24 @@ print(" Subscribed to topics")
 # ClickHouse setup
 client = clickhouse_connect.get_client(host='localhost', port=8123)
 client.command("CREATE DATABASE IF NOT EXISTS raw")
-def normalize_value(v):
-    import json
-    if isinstance(v, (dict, list, bytes)):
-        return json.dumps(v)  # Serialize complex types as JSON string
-    elif v is None:
-        return ''
-    elif isinstance(v, (int, float, bool, str)):
-        return v
-    else:
-        return str(v)  # Fallback for unexpected types
+def normalize_value(value):
+    try:
+        if value is None:
+            return ''
+        elif isinstance(value, (bool, int, float, str)):
+            return value
+        elif isinstance(value, Decimal):
+            return float(value)
+        elif isinstance(value, (datetime.datetime, datetime.date)):
+            return value.isoformat()
+        elif isinstance(value, UUID):
+            return str(value)
+        elif isinstance(value, (dict, list)):
+            return json.dumps(value)
+        else:
+            return str(value)
+    except Exception as e:
+        return f"[INVALID: {str(e)}]"
 def infer_clickhouse_type(value):
     return TYPE_MAPPING.get(type(value), 'String')
 
