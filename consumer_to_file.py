@@ -94,7 +94,9 @@ def normalize_value(value):
         elif isinstance(value, (int, float)) and value > 1e12:
             # Likely a timestamp in milliseconds — convert to seconds
             return int(value) // 1000
-        elif isinstance(value, (bool, int, float)):
+        elif isinstance(value, bool):
+            return int(value)  # ClickHouse expects 0/1 for boolean
+        elif isinstance(value, (int, float)):
             return value
         elif isinstance(value, bytes):
             return value.decode('utf-8', errors='replace')
@@ -121,8 +123,7 @@ def ensure_table(table_name, sample_record):
     if table_name in created_tables:
         return
 
-    cols = []  # ✅ FIXED: declared outside loop
-
+    cols = []
     for k, v in sample_record.items():
         if k in ["value", "source_params", "child_config", "config"]:
             col_type = "String"
@@ -130,8 +131,7 @@ def ensure_table(table_name, sample_record):
             col_type = "DateTime"
         else:
             col_type = infer_clickhouse_type(v)
-
-        cols.append(f"{k} {col_type}")  # ✅ only append once
+            cols.append(f"{k} {col_type}")
 
     order_by = next((key for key in PRIMARY_KEY_CANDIDATES if key in sample_record), list(sample_record.keys())[0])
     ddl = f"""
