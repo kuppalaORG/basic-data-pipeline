@@ -56,59 +56,46 @@ TYPE_MAPPING = {
 
 PRIMARY_KEY_CANDIDATES = ['uuid', 'id', 'pk', 'employee_id', 'record_id']
 created_tables = set()
-
+DLQ_PATH = 'dlq_errors.txt'
 # Setup DLQ file
 if not os.path.exists(DLQ_PATH):
     open(DLQ_PATH, 'w').close()
 
-def write_to_dlq(message, error):
+
+def write_to_dlq(message, error, table=None, column=None, value=None):
     with open(DLQ_PATH, 'a') as f:
-        f.write(f"ERROR: {error}\nMESSAGE: {json.dumps(message)}\n\n")
+        f.write("🔥 INSERT FAILURE\n")
+        if table:
+            f.write(f"Table: {table}\n")
+        if column:
+            f.write(f"Column: {column}\n")
+        if value is not None:
+            f.write(f"Offending Value: {repr(value)}\n")
+        f.write(f"Error: {error}\n")
+        f.write("Payload:\n")
+        f.write(json.dumps(message, indent=2, default=str))
+        f.write("\n" + "-"*80 + "\n")
 
-# Discover topics
-admin = AdminClient({'bootstrap.servers': BOOTSTRAP_SERVERS})
-metadata = admin.list_topics(timeout=10)
-topics = [t for t in metadata.topics if any(t.startswith(p) for p in VALID_PREFIXES)]
-if not topics:
-    print(" No matching topics found with prefix:", VALID_PREFIXES)
-    exit(1)
-print("📡 Topics detected:", topics)
-
-# Kafka consumer setup
-consumer = Consumer({
-    'bootstrap.servers': BOOTSTRAP_SERVERS,
-    'group.id': 'clickhouse-dynamic-' + str(int(time.time())),
-    'auto.offset.reset': 'earliest',
-    'enable.auto.commit': True,
-})
-consumer.subscribe(topics)
-print(" Subscribed to topics")
-
-# ClickHouse setup
-client = clickhouse_connect.get_client(host='localhost', port=8123)
-client.command("CREATE DATABASE IF NOT EXISTS raw")
 def normalize_value(value):
     try:
         if value is None:
             return ''
         elif isinstance(value, (int, float)) and value > 1e12:
-            # Likely a timestamp in milliseconds — convert to seconds
             return int(value) // 1000
         elif isinstance(value, bool):
-            return int(value)  # ClickHouse expects 0/1 for boolean
+            return int(value)
         elif isinstance(value, (int, float)):
             return value
         elif isinstance(value, bytes):
             return value.decode('utf-8', errors='replace')
         elif isinstance(value, str):
-            # Check if it's a stringified JSON (like config) — if so, return as-is
             try:
                 parsed = json.loads(value)
                 if isinstance(parsed, (dict, list)):
-                    return value  # already a JSON string — don't dump again
+                    return value
             except:
                 pass
-            return value  # plain string
+            return value
         elif isinstance(value, (dict, list, tuple)):
             return json.dumps(value, default=str)
         else:
@@ -117,7 +104,18 @@ def normalize_value(value):
         return f"[ERROR: {e}]"
 
 def infer_clickhouse_type(value):
-    return TYPE_MAPPING.get(type(value), 'String')
+    if isinstance(value, bool):
+        return "UInt8"
+    elif isinstance(value, int):
+        return "Int64"
+    elif isinstance(value, float):
+        return "Float64"
+    elif isinstance(value, str):
+        return "String"
+    elif isinstance(value, dict) or isinstance(value, list):
+        return "String"
+    else:
+        return "String"
 
 def ensure_table(table_name, sample_record):
     if table_name in created_tables:
@@ -131,9 +129,10 @@ def ensure_table(table_name, sample_record):
             col_type = "DateTime"
         else:
             col_type = infer_clickhouse_type(v)
-            cols.append(f"{k} {col_type}")
+        cols.append(f"{k} {col_type}")
 
     order_by = next((key for key in PRIMARY_KEY_CANDIDATES if key in sample_record), list(sample_record.keys())[0])
+
     ddl = f"""
     CREATE TABLE IF NOT EXISTS raw.{table_name} (
         {', '.join(cols)}
@@ -142,10 +141,28 @@ def ensure_table(table_name, sample_record):
     """
     client.command(ddl)
     created_tables.add(table_name)
-    print(f"🛠Ensured table raw.{table_name} with ORDER BY {order_by}")
+    print(f"🛠 Ensured table raw.{table_name} with ORDER BY {order_by}")
 
-# Start consuming
+def alter_table_if_new_keys(table_name, record):
+    desc_output = client.command(f"DESCRIBE TABLE raw.{table_name}")
+    existing_cols = {line.split()[0] for line in desc_output.strip().splitlines()}
+
+    new_cols = []
+    for key, value in record.items():
+        if key not in existing_cols:
+            col_type = infer_clickhouse_type(value)
+            new_cols.append((key, col_type))
+
+    for key, col_type in new_cols:
+        alter_cmd = f"ALTER TABLE raw.{table_name} ADD COLUMN IF NOT EXISTS {key} {col_type}"
+        client.command(alter_cmd)
+        print(f"➕ Added column: {key} ({col_type}) to raw.{table_name}")
+
+# Consumer logic
+print("📡 Topics detected:", topics)
+print(" Subscribed to topics")
 print(" Listening to Debezium topics...")
+
 try:
     while True:
         msg = consumer.poll(POLL_TIMEOUT)
@@ -168,13 +185,25 @@ try:
             if op in ["c", "u", "r"]:
                 after = payload.get("after", {})
                 if after:
-                    ensure_table(table, after)
                     try:
-                        normalized_row = [normalize_value(v) for v in after.values()]
-                        client.insert(f"raw.{table}", [normalized_row], column_names=list(after.keys()))
+                        # Normalize and create table
+                        normalized_record = {k: normalize_value(v) for k, v in after.items()}
+                        ensure_table(table, normalized_record)
+                        alter_table_if_new_keys(table, normalized_record)
+
+                        # Insert
+                        client.insert_dicts(f"raw.{table}", [normalized_record])
                     except Exception as insert_err:
-                        print("⚠ Insert error:", insert_err)
-                        write_to_dlq(after, str(insert_err))
+                        # Pinpoint problematic key if possible
+                        for key, value in normalized_record.items():
+                            try:
+                                client.insert_dicts(f"raw.{table}", [{key: value}])
+                            except Exception as col_err:
+                                write_to_dlq(after, str(col_err), table, key, value)
+                                break  # break after first offending column
+                        else:
+                            # fallback if not caught by column-level test
+                            write_to_dlq(after, str(insert_err), table)
 
             elif op == "d":
                 before = payload.get("before", {})
@@ -183,13 +212,12 @@ try:
                     where_clause = f"id = '{record_id}'" if isinstance(record_id, str) else f"id = {record_id}"
                     try:
                         client.command(f"ALTER TABLE raw.{table} DELETE WHERE {where_clause}")
-                        print(f"Deleted from raw.{table}: {record_id}")
+                        print(f"🗑 Deleted from raw.{table}: {record_id}")
                     except Exception as delete_err:
-                        print("⚠ Delete error:", delete_err)
-                        write_to_dlq(before, str(delete_err))
+                        write_to_dlq(before, str(delete_err), table)
 
         except Exception as e:
-            print("⚠ Top-level message error:", e)
+            print("⚠ Top-level error:", e)
             write_to_dlq(msg.value().decode('utf-8'), str(e))
 
 except KeyboardInterrupt:
