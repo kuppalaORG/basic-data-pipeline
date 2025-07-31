@@ -13,7 +13,9 @@ admin = AdminClient({'bootstrap.servers': BOOTSTRAP_SERVERS})
 metadata = admin.list_topics(timeout=10)
 topics = [t for t in metadata.topics if t.startswith(TOPIC_PREFIX)]
 print("📡 Topics detected:", topics)
-
+if not topics:
+    print(" No matching topics found with prefix:", TOPIC_PREFIX)
+    sys.exit(1)  # Exit gracefully
 # Consumer setup with committed offsets and retry safety
 consumer = Consumer({
     'bootstrap.servers': BOOTSTRAP_SERVERS,
@@ -23,7 +25,7 @@ consumer = Consumer({
     'auto.commit.interval.ms': 5000
 })
 consumer.subscribe(topics)
-print("✅ Subscribed to topics")
+print("Subscribed to topics")
 
 # Connect to ClickHouse
 client = clickhouse_connect.get_client(host='localhost', port=8123)
@@ -75,7 +77,7 @@ try:
         if msg.error():
             if msg.error().code() == KafkaError._PARTITION_EOF:
                 continue
-            print("❗ Kafka error:", msg.error())
+            print("Kafka error:", msg.error())
             continue
 
         try:
@@ -93,7 +95,7 @@ try:
                 if after:
                     ensure_table(table, after)
                     client.insert(f"raw.{table}", [list(after.values())], column_names=list(after.keys()))
-                    print(f"📥 Inserted into raw.{table}: {after}")
+                    print(f" Inserted into raw.{table}: {after}")
 
             elif op == "d":
                 before = payload.get("before", {})
