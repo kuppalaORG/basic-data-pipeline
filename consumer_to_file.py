@@ -3,57 +3,56 @@ from confluent_kafka.admin import AdminClient
 import clickhouse_connect
 import json
 import time
-import sys
 
+# Kafka settings
 BOOTSTRAP_SERVERS = 'localhost:29092'
-TOPIC_PREFIX = 'dbserver1.'
+VALID_PREFIXES = ['config.', 'sourcing.']
 
-# Discover topics dynamically
+# Discover topics
 admin = AdminClient({'bootstrap.servers': BOOTSTRAP_SERVERS})
 metadata = admin.list_topics(timeout=10)
-topics = [t for t in metadata.topics if t.startswith(TOPIC_PREFIX)]
-print("📡 Topics detected:", topics)
+topics = [t for t in metadata.topics if any(t.startswith(p) for p in VALID_PREFIXES)]
+
 if not topics:
-    print(" No matching topics found with prefix:", TOPIC_PREFIX)
-    sys.exit(1)  # Exit gracefully
-# Consumer setup with committed offsets and retry safety
+    print(" No matching topics found with prefix:", VALID_PREFIXES)
+    exit(1)
+
+print("📡 Topics detected:", topics)
+
+# Kafka consumer
 consumer = Consumer({
     'bootstrap.servers': BOOTSTRAP_SERVERS,
-    'group.id': 'clickhouse-loader',
-    'auto.offset.reset': 'earliest',  # start from beginning if no committed offset
+    'group.id': 'clickhouse-dynamic-' + str(int(time.time())),
+    'auto.offset.reset': 'earliest',
     'enable.auto.commit': True,
-    'auto.commit.interval.ms': 5000
 })
 consumer.subscribe(topics)
 print("Subscribed to topics")
 
-# Connect to ClickHouse
+# ClickHouse client
 client = clickhouse_connect.get_client(host='localhost', port=8123)
 client.command("CREATE DATABASE IF NOT EXISTS raw")
 
 created_tables = set()
-PRIMARY_KEY_CANDIDATES = ['uuid', 'id', 'pk', 'record_id', 'employee_id']
-
-def infer_clickhouse_type(value):
-    if isinstance(value, bool):
-        return 'UInt8'
-    elif isinstance(value, int):
-        return 'Int64'
-    elif isinstance(value, float):
-        return 'Float64'
-    else:
-        return 'String'
+PRIMARY_KEY_CANDIDATES = ['uuid', 'id', 'pk', 'employee_id', 'record_id']
 
 def ensure_table(table_name, sample_record):
     if table_name in created_tables:
         return
 
     cols = []
-    for col, val in sample_record.items():
-        col_type = infer_clickhouse_type(val)
-        cols.append(f"{col} {col_type}")
+    for k, v in sample_record.items():
+        if isinstance(v, int):
+            col_type = 'Int64'
+        elif isinstance(v, float):
+            col_type = 'Float64'
+        elif isinstance(v, bool):
+            col_type = 'UInt8'
+        else:
+            col_type = 'String'
+        cols.append(f"{k} {col_type}")
 
-    order_by = next((k for k in PRIMARY_KEY_CANDIDATES if k in sample_record), list(sample_record.keys())[0])
+    order_by = next((key for key in PRIMARY_KEY_CANDIDATES if key in sample_record), list(sample_record.keys())[0])
     ddl = f"""
     CREATE TABLE IF NOT EXISTS raw.{table_name} (
         {', '.join(cols)}
@@ -62,64 +61,51 @@ def ensure_table(table_name, sample_record):
     """
     client.command(ddl)
     created_tables.add(table_name)
-    print(f"🛠️ Table created: raw.{table_name} ORDER BY {order_by}")
+    print(f" Ensured table raw.{table_name} with ORDER BY {order_by}")
 
 # Start consuming
-print("🚀 Starting to consume Debezium messages...")
+print("🚀 Listening to Debezium topics...")
 
 try:
     while True:
         msg = consumer.poll(3.0)
-
         if msg is None:
             print("⌛ Waiting for message...")
             continue
         if msg.error():
-            if msg.error().code() == KafkaError._PARTITION_EOF:
-                continue
-            print("Kafka error:", msg.error())
+            print("❗ Kafka error:", msg.error())
             continue
 
         try:
             val = json.loads(msg.value().decode('utf-8'))
-            payload = val.get("payload", {})
+            payload = val.get("payload")
             if not payload:
                 continue
 
-            topic_parts = msg.topic().split('.')
-            table = topic_parts[-1]
+            table = msg.topic().split('.')[-1]
             op = payload.get("op")
 
-            if op in ["c", "r", "u"]:  # insert or update
+            if op in ["c", "u", "r"]:
                 after = payload.get("after", {})
                 if after:
                     ensure_table(table, after)
                     client.insert(f"raw.{table}", [list(after.values())], column_names=list(after.keys()))
-                    print(f" Inserted into raw.{table}: {after}")
+                    print(f"📥 Inserted into raw.{table}: {after}")
 
             elif op == "d":
                 before = payload.get("before", {})
-                table_full = f"raw.{table}"
-                record_id = None
-                for key in PRIMARY_KEY_CANDIDATES:
-                    if key in before:
-                        record_id = before[key]
-                        key_col = key
-                        break
+                record_id = before.get("uuid") or before.get("id")
                 if record_id:
-                    if isinstance(record_id, str):
-                        client.command(f"ALTER TABLE {table_full} DELETE WHERE {key_col} = '{record_id}'")
-                    else:
-                        client.command(f"ALTER TABLE {table_full} DELETE WHERE {key_col} = {record_id}")
-                    print(f"🗑️ Deleted from {table_full}: {record_id}")
+                    where_clause = f"id = '{record_id}'" if isinstance(record_id, str) else f"id = {record_id}"
+                    client.command(f"ALTER TABLE raw.{table} DELETE WHERE {where_clause}")
+                    print(f"🗑️ Deleted from raw.{table}: {record_id}")
 
         except Exception as e:
-            print("💥 Error processing message:", e)
-            print("🧾 Raw message:", msg.value())
+            print("⚠ Error during message handling:", e)
 
 except KeyboardInterrupt:
-    print("\n👋 Stopping consumer...")
+    print("Interrupted by user")
 
 finally:
     consumer.close()
-    print("🔒 Consumer closed safely.")
+    print(" Consumer closed")
