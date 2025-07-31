@@ -60,7 +60,8 @@ DLQ_PATH = 'dlq_errors.txt'
 # Setup DLQ file
 if not os.path.exists(DLQ_PATH):
     open(DLQ_PATH, 'w').close()
-
+#Initialize ClickHouse client
+client = clickhouse_connect.get_client(host='localhost', port=8123, username='default', password='')
 
 def write_to_dlq(message, error, table=None, column=None, value=None):
     with open(DLQ_PATH, 'a') as f:
@@ -72,6 +73,8 @@ def write_to_dlq(message, error, table=None, column=None, value=None):
         if value is not None:
             f.write(f"Offending Value: {repr(value)}\n")
         f.write(f"Error: {error}\n")
+        if "table" in error.lower():
+            f.write("💥 Hint: Table might have been dropped or not yet created!\n")
         f.write("Payload:\n")
         f.write(json.dumps(message, indent=2, default=str))
         f.write("\n" + "-"*80 + "\n")
@@ -163,6 +166,7 @@ def alter_table_if_new_keys(table_name, record):
 admin = AdminClient({'bootstrap.servers': BOOTSTRAP_SERVERS})
 metadata = admin.list_topics(timeout=10)
 topics = [t for t in metadata.topics if any(t.startswith(p) for p in VALID_PREFIXES)]
+
 if not topics:
     print("❌ No matching topics found with prefix:", VALID_PREFIXES)
     exit(1)
