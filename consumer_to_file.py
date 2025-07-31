@@ -158,6 +158,25 @@ def alter_table_if_new_keys(table_name, record):
         client.command(alter_cmd)
         print(f"➕ Added column: {key} ({col_type}) to raw.{table_name}")
 
+
+# Discover topics
+admin = AdminClient({'bootstrap.servers': BOOTSTRAP_SERVERS})
+metadata = admin.list_topics(timeout=10)
+topics = [t for t in metadata.topics if any(t.startswith(p) for p in VALID_PREFIXES)]
+if not topics:
+    print("❌ No matching topics found with prefix:", VALID_PREFIXES)
+    exit(1)
+
+print("📡 Topics detected:", topics)
+
+# Kafka consumer setup
+consumer = Consumer({
+    'bootstrap.servers': BOOTSTRAP_SERVERS,
+    'group.id': 'clickhouse-dynamic-' + str(int(time.time())),
+    'auto.offset.reset': 'earliest',
+    'enable.auto.commit': True,
+})
+consumer.subscribe(topics)
 # Consumer logic
 print("📡 Topics detected:", topics)
 print(" Subscribed to topics")
