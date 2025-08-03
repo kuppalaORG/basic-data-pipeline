@@ -49,6 +49,7 @@ services:
       --enforce-gtid-consistency=ON
       --default-authentication-plugin=mysql_native_password
     volumes:
+      - /mnt/data/mysql:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - kafka_net
@@ -93,7 +94,7 @@ services:
         soft: 262144
         hard: 262144
     volumes:
-      - clickhouse_data:/var/lib/clickhouse
+      - /mnt/data/clickhouse:/var/lib/clickhouse
       - ./init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     networks:
       - kafka_net

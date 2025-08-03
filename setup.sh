@@ -8,19 +8,37 @@ set -e
 #   - Run: chmod +x setup.sh
 #   - Execute: ./setup.sh
 ################################################################################
+
 echo "🔧 Installing Docker..."
 sudo yum update -y
 sudo yum install -y docker
 sudo systemctl start docker
 sudo systemctl enable docker
 sudo dnf install -y libxcrypt-compat
+
 echo "👤 Adding current user to docker group..."
 sudo usermod -aG docker ec2-user
 
-# Ensure correct permissions on Docker socket immediately
+echo "🔧 Preparing EBS volumes..."
+# Optional check if mounted
+if ! mount | grep -q "/mnt/data"; then
+  echo "❌ /mnt/data not mounted. Please mount EBS volume before proceeding."
+  exit 1
+fi
+
+# ClickHouse volume
+sudo mkdir -p /mnt/data/clickhouse
+sudo chown -R 101:101 /mnt/data/clickhouse
+
+# MySQL volume
+sudo mkdir -p /mnt/data/mysql
+sudo chown -R 999:999 /mnt/data/mysql
+
+# Optional: Jupyter notebooks dir
+mkdir -p /home/ec2-user/notebooks
+
 echo "🔒 Setting Docker socket permissions..."
 sudo chmod 666 /var/run/docker.sock
-
 
 echo "🐳 Installing Docker Compose..."
 DOCKER_COMPOSE_VERSION=1.29.2
@@ -61,8 +79,22 @@ chmod +x init.sh
 echo "🚀 Starting Docker Compose services..."
 docker-compose up -d
 
-echo "⏳ Waiting for Kafka Connect to be ready..."
+echo "🐍 Installing Python and dependencies..."
+sudo dnf install -y python3 python3-pip
 
+if [ -f requirements.txt ]; then
+  pip3 install --no-cache-dir -r requirements.txt
+else
+  echo "⚠️ No requirements.txt found, skipping pip install."
+fi
+
+echo "⏳ Delaying Jupyter launch by 3 minutes..."
+(sleep 180 && nohup jupyter notebook --notebook-dir=/home/ec2-user/notebooks \
+  --ip=0.0.0.0 --port=8888 --no-browser > jupyter.log 2>&1 &) &
+echo "📓 Jupyter Notebook will be available at: http://<EC2-PUBLIC-IP>:8888"
+echo "🔑 Check jupyter.log for token or configure token manually."
+
+echo "⌛ Waiting for Kafka Connect to be ready..."
 while true; do
   STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083)
   echo "🔍 HTTP Status: $STATUS_CODE"
@@ -76,17 +108,15 @@ while true; do
   sleep 5
 done
 
+echo "🔌 Registering Kafka connector if script exists..."
+if [ -f register-connector.sh ]; then
+  chmod +x register-connector.sh
+#  ./register-connector.sh
+else
+  echo "⚠️ register-connector.sh not found. Skipping connector registration."
+fi
 
-echo "🔌 Creating connector registration script..."
+echo "🚀 Starting Kafka-to-ClickHouse consumer in background..."
+#nohup python3 consumer_to_file.py > consumer.log 2>&1 &
 
-chmod +x register-connector.sh
-
-./register-connector.sh
-
-echo "✅ Done. All services are up!"
-sudo dnf install -y python3 python3-pip
-pip3 install --no-cache-dir -r requirements.txt
-
-# Start Kafka-to-ClickHouse consumer in background
-nohup python3 consumer_to_file.py > consumer.log 2>&1 &
-echo "🚀 Kafka-to-ClickHouse consumer started in background."
+echo "✅ Setup complete. All services are up and running."
