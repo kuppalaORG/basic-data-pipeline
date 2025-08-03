@@ -123,6 +123,21 @@ services:
       - clickhouse
     networks:
       - kafka_net
+  jupyter:
+    image: jupyter/pyspark-notebook
+    container_name: jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - /mnt/data/notebooks:/home/jovyan/work
+    environment:
+      - JUPYTER_TOKEN=debezium
+      - SPARK_OPTS=--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1
+    depends_on:
+      - clickhouse
+      - kafka
+    networks:
+      - kafka_net
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
@@ -143,3 +158,4 @@ volumes:
 
 networks:
   kafka_net:
+    driver: bridge
