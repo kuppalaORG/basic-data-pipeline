@@ -127,7 +127,7 @@ services:
     image: jupyter/pyspark-notebook
     container_name: jupyter
     ports:
-      - "8898:8898"
+      - "8999:8999"
     volumes:
       - /mnt/data/notebooks:/home/jovyan/work
     environment:

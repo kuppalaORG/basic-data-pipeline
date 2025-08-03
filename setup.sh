@@ -90,7 +90,7 @@ fi
 
 echo "⏳ Delaying Jupyter launch by 3 minutes..."
 (sleep 180 && nohup jupyter notebook --notebook-dir=/home/ec2-user/notebooks \
-  --ip=0.0.0.0 --port=8898 --no-browser > jupyter.log 2>&1 &) &
+  --ip=0.0.0.0 --port=8999 --no-browser > jupyter.log 2>&1 &) &
 echo "📓 Jupyter Notebook will be available at: http://<EC2-PUBLIC-IP>:8898"
 echo "🔑 Check jupyter.log for token or configure token manually."
 
