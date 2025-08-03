@@ -130,6 +130,7 @@ services:
       - "8999:8999"
     volumes:
       - /mnt/data/notebooks:/home/jovyan/work
+      - /home/ec2-user:/home/ec2-user_host
     environment:
       - JUPYTER_TOKEN=debezium
       - SPARK_OPTS=--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1
