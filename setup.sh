@@ -87,7 +87,7 @@ if [ -f requirements.txt ]; then
 else
   echo "⚠️ No requirements.txt found, skipping pip install."
 fi
-
+chmod +x  spark.sh
 echo "⏳ Delaying Jupyter launch by 3 minutes..."
 nohup jupyter notebook --notebook-dir=/home/ec2-user/notebooks \
   --ip=0.0.0.0 --port=8999 --no-browser > jupyter.log 2>&1 &

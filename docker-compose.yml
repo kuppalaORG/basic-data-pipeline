@@ -123,22 +123,22 @@ services:
       - clickhouse
     networks:
       - kafka_net
-  jupyter:
-    image: jupyter/pyspark-notebook
-    container_name: jupyter
-    ports:
-      - "8999:8999"
-    volumes:
-      - /mnt/data/notebooks:/home/jovyan/work
-      - /home/ec2-user:/home/ec2-user_host
-    environment:
-      - JUPYTER_TOKEN=debezium
-      - SPARK_OPTS=--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1
-    depends_on:
-      - clickhouse
-      - kafka
-    networks:
-      - kafka_net
+#  jupyter:
+#    image: jupyter/pyspark-notebook
+#    container_name: jupyter
+#    ports:
+#      - "8999:8999"
+#    volumes:
+#      - /mnt/data/notebooks:/home/jovyan/work
+#      - /home/ec2-user:/home/ec2-user_host
+#    environment:
+#      - JUPYTER_TOKEN=debezium
+#      - SPARK_OPTS=--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1
+#    depends_on:
+#      - clickhouse
+#      - kafka
+#    networks:
+#      - kafka_net
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
