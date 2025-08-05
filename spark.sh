@@ -1,21 +1,21 @@
 #!/bin/bash
 
-# --- Step 1: Clean up previous Jupyter, PySpark processes
 echo "🔁 Cleaning up previous Jupyter and PySpark instances..."
 pkill -f jupyter-notebook
 pkill -f pyspark
-# DO NOT kill all python3 processes — may kill ingestion or ETL scripts
+# ❌ DO NOT kill raw_ingest.py or other python3 processes
+# pkill -f python3
 
-# --- Step 2: Set required environment variables
+# Set environment variables
 export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
 export PATH=$JAVA_HOME/bin:$PATH
 export SPARK_HOME=/opt/spark
 export PATH=$SPARK_HOME/bin:$PATH
 
-export PYSPARK_DRIVER_PYTHON=jupyter-notebook
+# ✅ Use full path to jupyter-notebook
+export PYSPARK_DRIVER_PYTHON=/home/ec2-user/.local/bin/jupyter-notebook
 export PYSPARK_DRIVER_PYTHON_OPTS="--notebook-dir=/home/ec2-user --ip=0.0.0.0 --port=8999 --no-browser"
 
-# --- Step 3: Launch PySpark with JDBC and Kafka packages
 echo "🚀 Starting Jupyter Notebook with PySpark and ClickHouse JDBC..."
 $SPARK_HOME/bin/pyspark \
   --master local[*] \
