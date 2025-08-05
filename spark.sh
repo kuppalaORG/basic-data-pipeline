@@ -12,8 +12,8 @@ export PATH=$JAVA_HOME/bin:$PATH
 export SPARK_HOME=/opt/spark
 export PATH=$SPARK_HOME/bin:$PATH
 
-export PYSPARK_DRIVER_PYTHON=jupyter
-export PYSPARK_DRIVER_PYTHON_OPTS="notebook --notebook-dir=/home/ec2-user --ip=0.0.0.0 --port=8999 --no-browser"
+export PYSPARK_DRIVER_PYTHON=jupyter-notebook
+export PYSPARK_DRIVER_PYTHON_OPTS="--notebook-dir=/home/ec2-user --ip=0.0.0.0 --port=8999 --no-browser"
 
 # --- Step 3: Launch PySpark with JDBC and Kafka packages
 echo "🚀 Starting Jupyter Notebook with PySpark and ClickHouse JDBC..."
